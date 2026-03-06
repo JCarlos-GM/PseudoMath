@@ -1,41 +1,30 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
+/* Reset y configuracion base del cuerpo */
 body {
-  @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden;
+  @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden selection:bg-indigo-200 selection:text-indigo-900;
 }
 
-/* Animaciones personalizadas para los "orbes" de luz del fondo */
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
+/* Patrón de cuadrícula técnica estática (Papel milimétrico) */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+    linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-/* Scrollbar moderno e invisible */
+/* Scrollbar tecnico de alto contraste */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-slate-100 border-l border-slate-200;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  @apply bg-slate-400 rounded-none border-2 border-slate-100;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+  @apply bg-slate-600;
 }
