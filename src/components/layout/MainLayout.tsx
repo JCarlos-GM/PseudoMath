@@ -29,7 +29,7 @@ export default function MainLayout() {
                 <Sigma size={20} strokeWidth={2.5} />
               </div>
               <span className="text-xl font-black tracking-tight text-slate-900 uppercase">
-                Pseudo<span className="text-indigo-700">Math</span>
+                Pseudo<span className="text-accent">Math</span>
               </span>
             </div>
 
@@ -42,7 +42,7 @@ export default function MainLayout() {
                   className={({ isActive }) =>
                     `flex items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${
                       isActive
-                        ? 'border-indigo-700 text-indigo-700 bg-indigo-50/50'
+                        ? 'border-accent text-accent bg-accent-muted'
                         : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                     }`
                   }
@@ -53,7 +53,7 @@ export default function MainLayout() {
               ))}
             </nav>
 
-            {/* Selector de Modo (Ejemplo de interaccion tecnica) */}
+            {/* Selector de Modo */}
             <div className="hidden lg:flex items-center gap-3 border-l border-slate-200 pl-6">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                 Modo Estricto

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Settings2, Play, Hash, ListOrdered, Maximize, Activity, Calculator } from 'lucide-react';
 import { useSimulationStore } from '../store/useSimulationStore';
+import { generateMidSquares } from '../core/generators/midSquares';
 
-// Definicion de los metodos disponibles en el sistema
+// Definicion de los metodos algoritmicos disponibles
 const GENERATION_METHODS = [
   { id: 'midSquares', name: 'Cuadrados Medios', icon: Maximize },
   { id: 'multiplicative', name: 'Congruencial Multiplicativo', icon: Hash },
@@ -10,48 +11,61 @@ const GENERATION_METHODS = [
 ];
 
 export default function Generators() {
-  // Estado local para manejar la UI de seleccion
+  // Estado local para parametros de entrada
   const [activeMethod, setActiveMethod] = useState<string>('midSquares');
-  
-  // Estado global para futura conexion con la logica matematica
-  const { setSimulationData } = useSimulationStore();
-
-  // Estados de los parametros de entrada
   const [seed, setSeed] = useState<string>('');
   const [iterations, setIterations] = useState<string>('100');
-  const [multiplier, setMultiplier] = useState<string>('');
-  const [modulus, setModulus] = useState<string>('');
+  
+  // Acceso al Store global para almacenar resultados
+  const { setSimulationData, generatedNumbers } = useSimulationStore();
+  const [error, setError] = useState<string | null>(null);
 
-  // Manejador del evento de generacion
+  // Ejecucion del motor matematico
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Conectar con src/core/generators/...
-    console.log('Generando secuencias para:', activeMethod);
+    setError(null);
+
+    try {
+      const parsedSeed = parseInt(seed, 10);
+      const parsedCount = parseInt(iterations, 10);
+
+      if (isNaN(parsedSeed) || isNaN(parsedCount)) {
+        throw new Error('Los parámetros deben ser valores numéricos.');
+      }
+
+      if (activeMethod === 'midSquares') {
+        // Invocacion de la logica core (aislada del componente visual)
+        const results = generateMidSquares({ seed: parsedSeed, count: parsedCount });
+        
+        // Almacenamiento en Zustand para disponibilidad global (Validadores)
+        setSimulationData(results, activeMethod);
+      } else {
+        throw new Error('Algoritmo seleccionado en fase de desarrollo.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
   return (
     <div className="h-full flex flex-col gap-6">
       
-      {/* Encabezado de la seccion */}
-      <div className="flex items-center justify-between bg-white border border-slate-200 p-6 rounded-none shadow-sm">
+      <div className="flex items-center justify-between bg-white border border-slate-200 p-6 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
-            <Calculator size={24} className="text-indigo-600" />
+            <Calculator size={24} className="text-accent" />
             Laboratorio de Generación
           </h1>
           <p className="text-slate-500 text-sm mt-1 font-medium">
-            Configure los parametros iniciales para la generacion de numeros pseudoaleatorios.
+            Configure los parámetros iniciales y ejecute el algoritmo seleccionado.
           </p>
         </div>
       </div>
 
-      {/* Contenedor principal de dos columnas */}
       <div className="flex flex-col lg:flex-row gap-6 h-full">
         
-        {/* COLUMNA IZQUIERDA: Configuracion */}
+        {/* Panel Izquierdo: Configuracion */}
         <div className="w-full lg:w-1/3 flex flex-col gap-6">
-          
-          {/* Tarjeta de Seleccion de Metodo */}
           <div className="bg-white border border-slate-200 p-6 shadow-sm">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Settings2 size={16} />
@@ -64,7 +78,7 @@ export default function Generators() {
                   onClick={() => setActiveMethod(method.id)}
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-semibold transition-colors border ${
                     activeMethod === method.id
-                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      ? 'bg-accent text-white border-accent'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                   }`}
                 >
@@ -75,58 +89,32 @@ export default function Generators() {
             </div>
           </div>
 
-          {/* Tarjeta de Parametros */}
           <form onSubmit={handleGenerate} className="bg-white border border-slate-200 p-6 shadow-sm flex flex-col gap-5">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <ListOrdered size={16} />
               Parámetros de Entrada
             </h2>
 
-            {/* Campos dinamicos dependiendo del metodo seleccionado */}
+            {/* Manejo de excepciones visuales */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-3">
+                Error: {error}
+              </div>
+            )}
+
             <div className="space-y-4">
-              
-              {/* Semilla (Aplica para todos) */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Semilla (X₀)</label>
                 <input
                   type="number"
                   value={seed}
                   onChange={(e) => setSeed(e.target.value)}
-                  placeholder="Ej. 1234"
-                  className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all"
+                  placeholder="Ej. 1234 (Min. 3 dígitos)"
+                  className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
                   required
                 />
               </div>
 
-              {/* Parametros exclusivos del metodo Multiplicativo */}
-              {activeMethod === 'multiplicative' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Multiplicador (a)</label>
-                    <input
-                      type="number"
-                      value={multiplier}
-                      onChange={(e) => setMultiplier(e.target.value)}
-                      placeholder="Ej. 5"
-                      className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Módulo (m)</label>
-                    <input
-                      type="number"
-                      value={modulus}
-                      onChange={(e) => setModulus(e.target.value)}
-                      placeholder="Ej. 32"
-                      className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Cantidad de iteraciones (Aplica para todos) */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Iteraciones (n)</label>
                 <input
@@ -134,7 +122,7 @@ export default function Generators() {
                   value={iterations}
                   onChange={(e) => setIterations(e.target.value)}
                   placeholder="Ej. 100"
-                  className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all"
+                  className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm p-2.5 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
                   required
                 />
               </div>
@@ -142,7 +130,7 @@ export default function Generators() {
 
             <button
               type="submit"
-              className="mt-4 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-bold py-3 px-4 hover:bg-indigo-600 transition-colors"
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-bold py-3 px-4 hover:bg-accent transition-colors"
             >
               <Play size={18} fill="currentColor" />
               Ejecutar Simulación
@@ -150,20 +138,46 @@ export default function Generators() {
           </form>
         </div>
 
-        {/* COLUMNA DERECHA: Visualizacion de Datos (Placeholder temporal) */}
-        <div className="w-full lg:w-2/3 bg-white border border-slate-200 p-0 shadow-sm flex flex-col">
-          <div className="border-b border-slate-200 p-4 bg-slate-50">
+        {/* Panel Derecho: Tabla de Resultados Dinamica */}
+        <div className="w-full lg:w-2/3 bg-white border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+          <div className="border-b border-slate-200 p-4 bg-slate-50 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
               Resultados de la Ejecución
             </h3>
+            <span className="text-xs font-bold text-slate-500">
+              {generatedNumbers.length} iteraciones procesadas
+            </span>
           </div>
           
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-12">
-            <Activity size={48} className="mb-4 text-slate-300" strokeWidth={1.5} />
-            <p className="text-lg font-medium text-slate-500">Esperando parámetros</p>
-            <p className="text-sm mt-2 text-center max-w-sm">
-              Ingrese la semilla y configure el algoritmo en el panel izquierdo para visualizar la tabla iterativa paso a paso.
-            </p>
+          <div className="flex-1 overflow-auto bg-white">
+            {generatedNumbers.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 p-12">
+                <Activity size={48} className="mb-4 text-slate-300" strokeWidth={1.5} />
+                <p className="text-lg font-medium text-slate-500">Esperando parámetros</p>
+                <p className="text-sm mt-2 text-center max-w-sm">
+                  Ingrese la semilla y configure el algoritmo en el panel izquierdo.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th className="px-6 py-3 font-bold">i</th>
+                    <th className="px-6 py-3 font-bold">Xᵢ (Semilla)</th>
+                    <th className="px-6 py-3 font-bold font-mono">rᵢ (Pseudoaleatorio)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {generatedNumbers.map((row, index) => (
+                    <tr key={index} className="hover:bg-accent-muted/50 transition-colors">
+                      <td className="px-6 py-3 font-medium text-slate-900">{row.iteration}</td>
+                      <td className="px-6 py-3 text-slate-600">{row.seed}</td>
+                      <td className="px-6 py-3 text-accent font-bold font-mono">{row.value.toFixed(5)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

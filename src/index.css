@@ -1,12 +1,19 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
-/* Reset y configuracion base del cuerpo */
-body {
-  @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden selection:bg-indigo-200 selection:text-indigo-900;
+/* Definicion de variables de color personalizadas para el tema global */
+@theme {
+  --color-accent: #db3f59;
+  --color-accent-hover: #b8354b; /* Tono oscurecido para estados hover */
+  --color-accent-muted: #fcedf0; /* Tono muy claro para fondos de seleccion */
 }
 
-/* Patrón de cuadrícula técnica estática (Papel milimétrico) */
+/* Reset y configuracion base del cuerpo */
+body {
+  @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden selection:bg-accent-muted selection:text-accent;
+}
+
+/* Patron de cuadricula tecnica estatica (Papel milimetrico) */
 .bg-grid-pattern {
   background-image: 
     linear-gradient(to right, #e2e8f0 1px, transparent 1px),
