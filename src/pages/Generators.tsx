@@ -54,7 +54,7 @@ function generateRandomSeed(): number {
 
 function copyValidRi(annotated: ReturnType<typeof annotateSteps>, setFeedback: (s: string) => void) {
   const text = annotated
-    .filter((s) => !s.isDuplicate)
+    .filter((s) => !s.isDuplicate && !(s as any).isSeedRow)
     .map((s) => s.value.toFixed(4))
     .join('\n');
   navigator.clipboard.writeText(text)
@@ -623,19 +623,8 @@ export default function Generators() {
                     {annotated.map((row, idx) => {
                       const r = row as MonteCarloStep & { isDuplicate: boolean };
 
-                      // Fila semilla — "No vale"
-                      if (r.isSeedRow) return (
-                        <tr key={r.iteration} className="bg-slate-100 border-b border-slate-200">
-                          <td className="px-4 py-3 text-center font-mono font-bold text-sm text-slate-400">{r.iteration}</td>
-                          <td className="px-4 py-3 text-center font-mono text-sm text-slate-400">{r.seed}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center justify-center gap-1.5">
-                              <span className="font-mono text-sm text-slate-400">{r.value.toFixed(4)}</span>
-                              <span className="text-[9px] font-black uppercase bg-slate-400 text-white px-1.5 py-0.5 tracking-wider">No vale</span>
-                            </span>
-                          </td>
-                        </tr>
-                      );
+                      // Fila semilla — ocultar
+                      if (r.isSeedRow) return null;
 
                       // Filas generadas
                       const bg = r.isDuplicate ? 'bg-red-50 hover:bg-red-100'
@@ -643,7 +632,7 @@ export default function Generators() {
                       const tb = r.isDuplicate ? 'text-red-600' : 'text-slate-800';
                       return (
                         <tr key={r.iteration} className={`${bg} transition-colors border-b border-slate-100`}>
-                          <td className="px-4 py-3 text-center font-mono font-bold text-sm text-slate-400">{r.iteration}</td>
+                          <td className="px-4 py-3 text-center font-mono font-bold text-sm text-slate-400">{r.iteration - 1}</td>
                           <td className={`px-4 py-3 text-center font-mono font-bold text-sm ${tb}`}>{r.seed}</td>
                           <td className="px-4 py-3 text-center"><RiCell value={r.value} isDuplicate={r.isDuplicate} /></td>
                         </tr>
