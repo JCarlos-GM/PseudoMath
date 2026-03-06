@@ -1,23 +1,11 @@
 import type { MonteCarloParams, MonteCarloStep } from '../../types/simulation';
 
-/**
- * Generador de números pseudoaleatorios por el Método de Monte Carlo (Congruencial Lineal).
- *
- * Formato idéntico al Excel de referencia:
- *   Fila 1 : x = semilla (X₀),  Ri = X₀/b  → "No vale"
- *   Fila n+1: x = Xₙ = (a·Xₙ₋₁ + c) mod b, Ri = Xₙ/b
- *
- * Usa BigInt para la multiplicación a·Xₙ que puede superar Number.MAX_SAFE_INTEGER.
- */
 export function generateMonteCarlo(params: MonteCarloParams): MonteCarloStep[] {
   const { seed, a, c, b, count } = params;
 
   const results: MonteCarloStep[] = [];
-  const bigA = BigInt(a);
-  const bigC = BigInt(c);
-  const bigB = BigInt(b);
 
-  // Fila 1: la semilla misma (No vale)
+  // Fila 1: la semilla misma
   results.push({
     iteration: 1,
     seed:      seed,
@@ -28,18 +16,19 @@ export function generateMonteCarlo(params: MonteCarloParams): MonteCarloStep[] {
 
   let currentX = seed;
   for (let i = 1; i <= count; i++) {
-    const xNext = Number((bigA * BigInt(currentX) + bigC) % bigB);
+    // Usamos Number de forma intencional para replicar el límite 
+    // de precisión de punto flotante de Excel (IEEE 754).
+    const xNext = (a * currentX + c) % b;
 
     results.push({
       iteration: i + 1,
-      seed:      xNext,   // Xₙ es el valor de "x" en esta fila
+      seed:      xNext,
       value:     xNext / b,
       isSeedRow: false,
       a, c, b,
     });
 
     currentX = xNext;
-    if (currentX === 0) break;
   }
 
   return results;
