@@ -185,7 +185,7 @@ export default function Generators() {
         </div>
       )}
 
-      <div className={`grid gap-4 ${hasResults ? 'grid-cols-1' : isMult ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
+      <div className={`grid gap-4 ${hasResults ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
 
         {/* Alfa — solo para multiplicativo */}
         {isMult && (
