@@ -1,5 +1,9 @@
-﻿import { MidSquareParams, MidSquareStep } from '../../types/simulation';
+﻿import type { MidSquareParams, MidSquareStep } from '../../types/simulation';
 
+/**
+ * Generador de números pseudoaleatorios por el Método de Cuadrados Medios.
+ * @param params Objeto con la semilla (seed) y cantidad de iteraciones (count).
+ */
 export function generateMidSquares(params: MidSquareParams): MidSquareStep[] {
   const { seed, count } = params;
   const results: MidSquareStep[] = [];
@@ -16,11 +20,14 @@ export function generateMidSquares(params: MidSquareParams): MidSquareStep[] {
   for (let i = 1; i <= count; i++) {
     const squared = Math.pow(currentXi, 2);
     let squaredStr = squared.toString();
+
+    // Relleno simétrico a 2d
     const targetLength = d * 2;
     while (squaredStr.length < targetLength) {
       squaredStr = '0' + squaredStr;
     }
 
+    // Extracción de dígitos centrales
     const startIndex = Math.floor((squaredStr.length - d) / 2);
     const middleDigitsStr = squaredStr.substring(startIndex, startIndex + d);
     
@@ -37,6 +44,7 @@ export function generateMidSquares(params: MidSquareParams): MidSquareStep[] {
     });
 
     currentXi = nextXi;
+    
     if (currentXi === 0) break;
   }
 
