@@ -1,8 +1,9 @@
 import {
-  Github, Mail, Linkedin, Heart, Sigma, DollarSign,
+  Github, Mail, Sigma, DollarSign,
   ChevronRight, ExternalLink, Code2, BookOpen, Calculator
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { siOnlyfans, siPaypal } from "simple-icons";
 
 export default function Footer() {
   return (
@@ -120,23 +121,55 @@ export default function Footer() {
                 aria-label="OnlyFans"
                 title="OnlyFans"
               >
-                <Heart size={18} />
+                <svg
+                  role="img"
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  dangerouslySetInnerHTML={{ __html: siOnlyfans.svg }}
+                />
               </a>
+              
+              
+              {/* Broma: Ouija */}
               <a
                 href="#"
-                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-[#003087] hover:text-white hover:border-[#003087] hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-900/20 transition-all duration-300"
-                aria-label="PayPal"
-                title="PayPal"
+                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-[#1a0a2e] hover:text-purple-300 hover:border-[#1a0a2e] hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-900/40 transition-all duration-300"
+                aria-label="Ouija"
+                title="Ouija"
               >
-                <DollarSign size={18} />
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  {/* tablero */}
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  {/* sol y luna */}
+                  <circle cx="5.5" cy="7.5" r="1.5" fill="currentColor" stroke="none" />
+                  <path d="M17 6 Q19 7.5 17 9" strokeWidth="1.2" fill="none" />
+                  {/* letras decorativas */}
+                  <text x="12" y="13" textAnchor="middle" fontSize="5" fontFamily="serif" fill="currentColor" stroke="none">YES NO</text>
+                  {/* planchette */}
+                  <ellipse cx="12" cy="17" rx="3" ry="1.5" />
+                  <line x1="12" y1="15.5" x2="12" y2="13.5" />
+                </svg>
               </a>
-              <a 
-                href="#" 
-                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-600/20 transition-all duration-300"
-                aria-label="LinkedIn"
+
+              {/* Señales de Humo */}
+              <a
+                href="#"
+                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-[#7c5c3a] hover:text-amber-100 hover:border-[#7c5c3a] hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-900/30 transition-all duration-300"
+                aria-label="Señales de humo"
+                title="Señales de humo"
               >
-                <Linkedin size={18} />
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  {/* fogata */}
+                  <path d="M8 20 Q10 17 9 14 Q11 16 12 13 Q13 16 15 14 Q14 17 16 20Z" fill="currentColor" stroke="none" opacity="0.5"/>
+                  <line x1="6" y1="20" x2="18" y2="20" />
+                  {/* columnas de humo */}
+                  <path d="M9 13 Q7 10 9 7 Q7 4 9 2" fill="none" />
+                  <path d="M12 13 Q14 9 12 6 Q14 3 12 1" fill="none" />
+                  <path d="M15 13 Q17 10 15 7 Q17 4 15 2" fill="none" />
+                </svg>
               </a>
+
             </div>
             
             <a 

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { GeneratedNumber, HistoryEntry } from '../types/simulation';
 
 interface SimulationState {
@@ -13,27 +14,32 @@ interface SimulationState {
   clearHistory: () => void;
 }
 
-export const useSimulationStore = create<SimulationState>((set) => ({
-  generatedNumbers: [],
-  methodUsed: null,
-  isSimulationActive: false,
-  history: [],
+export const useSimulationStore = create<SimulationState>()(
+  persist(
+    (set) => ({
+      generatedNumbers: [],
+      methodUsed: null,
+      isSimulationActive: false,
+      history: [],
 
-  setSimulationData: (numbers, method) => set({
-    generatedNumbers: numbers,
-    methodUsed: method,
-    isSimulationActive: true,
-  }),
+      setSimulationData: (numbers, method) => set({
+        generatedNumbers: numbers,
+        methodUsed: method,
+        isSimulationActive: true,
+      }),
 
-  clearSimulation: () => set({
-    generatedNumbers: [],
-    methodUsed: null,
-    isSimulationActive: false,
-  }),
+      clearSimulation: () => set({
+        generatedNumbers: [],
+        methodUsed: null,
+        isSimulationActive: false,
+      }),
 
-  addToHistory: (entry) => set((state) => ({
-    history: [...state.history, entry],
-  })),
+      addToHistory: (entry) => set((state) => ({
+        history: [...state.history, entry],
+      })),
 
-  clearHistory: () => set({ history: [] }),
-}));
+      clearHistory: () => set({ history: [] }),
+    }),
+    { name: 'pseudomath-simulation' },
+  ),
+);
