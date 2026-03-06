@@ -77,3 +77,17 @@ export interface MonteCarloStep extends GeneratedNumber {
   c: number;
   b: number;
 }
+
+// ==========================================
+// 5. Historial de Simulaciones
+// ==========================================
+
+export interface HistoryEntry {
+  id:         string;
+  method:     string;               // 'midSquares' | 'multiplicative' | 'monteCarlo'
+  seed:       number;               // X₀ de la simulación
+  params:     Record<string, number>; // todos los parámetros usados (count, alfa, a, c, b…)
+  validCount: number;               // Rᵢ únicos (sin duplicados)
+  totalCount: number;               // iteraciones generadas (sin fila semilla)
+  timestamp:  number;               // Date.now()
+}

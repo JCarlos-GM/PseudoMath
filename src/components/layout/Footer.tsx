@@ -1,5 +1,5 @@
-import { 
-  Github, Instagram, Mail, Linkedin, Heart, Sigma, 
+import {
+  Github, Mail, Linkedin, Heart, Sigma, DollarSign,
   ChevronRight, ExternalLink, Code2, BookOpen, Calculator
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -29,7 +29,7 @@ export default function Footer() {
             <div className="pt-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Desarrollado por</p>
               <p className="text-slate-700 text-sm font-medium flex items-center gap-1.5">
-                Juan Carlos Govea Magaña
+                Ing. Juan Carlos Govea Magaña
               </p>
               <p className="text-slate-500 text-xs mt-1">
                 Ing. en Sistemas Computacionales • TecNM
@@ -92,10 +92,10 @@ export default function Footer() {
           <div>
             <h4 className="text-slate-800 font-bold mb-4 flex items-center gap-2">
               <Code2 size={18} className="text-slate-700" />
-              Conecta conmigo
+              Contacta conmigo
             </h4>
             <p className="text-sm text-slate-500 mb-4">
-              ¿Tienes sugerencias o encontraste un bug? Contáctame en mis redes.
+              ¿Tienes sugerencias o encontraste un bug? No lo voy a arreglar pero igual me gustaría saberlo. 
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <a 
@@ -114,12 +114,21 @@ export default function Footer() {
               >
                 <Mail size={18} />
               </a>
-              <a 
-                href="#" 
-                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-gradient-to-tr hover:from-amber-500 hover:via-rose-500 hover:to-fuchsia-600 hover:text-white hover:border-transparent hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-300"
-                aria-label="Instagram"
+              <a
+                href="#"
+                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-[#00aff0] hover:text-white hover:border-[#00aff0] hover:-translate-y-1 hover:shadow-lg hover:shadow-cyan-400/20 transition-all duration-300"
+                aria-label="OnlyFans"
+                title="OnlyFans"
               >
-                <Instagram size={18} />
+                <Heart size={18} />
+              </a>
+              <a
+                href="#"
+                className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-[#003087] hover:text-white hover:border-[#003087] hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-900/20 transition-all duration-300"
+                aria-label="PayPal"
+                title="PayPal"
+              >
+                <DollarSign size={18} />
               </a>
               <a 
                 href="#" 
@@ -144,7 +153,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-200/60 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-slate-400 text-xs flex items-center gap-1.5 font-medium">
-            Construido con <Heart size={12} className="text-rose-500 fill-rose-500 animate-pulse" /> y React para la clase de Simulación.
+            Proyecto academico con TypeScript y React para la clase de Simulación.
           </p>
           <div className="text-slate-400 text-xs font-medium">
             &copy; {new Date().getFullYear()} PseudoMath. Todos los derechos reservados.

@@ -2,18 +2,42 @@ import { useState } from 'react';
 import {
   Settings2, Play, Hash, ListOrdered, Maximize,
   Activity, Calculator, AlertTriangle, RotateCcw,
-  CheckCircle, XCircle, Dice5, Copy, Check
+  CheckCircle, XCircle, Dice5, Copy, Check, History
 } from 'lucide-react';
 import { BlockMath } from 'react-katex';
 import { useSimulationStore } from '../store/useSimulationStore';
 import { generateMidSquares }    from '../core/generators/midSquares';
 import { generateMultiplicative } from '../core/generators/multiplicative';
 import { generateMonteCarlo }    from '../core/generators/monteCarlo';
-import type { MidSquareStep, MultiplicativeStep, MonteCarloStep } from '../types/simulation';
+import type { MidSquareStep, MultiplicativeStep, MonteCarloStep, HistoryEntry } from '../types/simulation';
 
 type AnyStep = MidSquareStep | MultiplicativeStep | MonteCarloStep;
 
 const MC_DEFAULTS = { a: 1103515245, c: 12345, b: 2147483648 };
+
+const METHOD_BADGE: Record<string, string> = {
+  midSquares:     'bg-accent text-white',
+  multiplicative: 'bg-slate-700 text-white',
+  monteCarlo:     'bg-emerald-600 text-white',
+};
+const METHOD_SHORT: Record<string, string> = {
+  midSquares:     'C.M.',
+  multiplicative: 'MULT',
+  monteCarlo:     'M.C.',
+};
+function formatTs(ts: number) {
+  return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+function countValid(results: AnyStep[]): number {
+  const seen = new Set<string>();
+  let n = 0;
+  for (const s of results) {
+    if ((s as any).isSeedRow) continue;
+    const key = s.value.toFixed(4);
+    if (!seen.has(key)) { seen.add(key); n++; }
+  }
+  return n;
+}
 
 const GENERATION_METHODS = [
   { id: 'midSquares',     name: 'Cuadrados Medios',     icon: Maximize, ready: true  },
@@ -91,7 +115,7 @@ export default function Generators() {
   const [bParam, setBParam]           = useState<string>('');
   const [useDefaults, setUseDefaults] = useState<boolean>(true);
 
-  const { setSimulationData, clearSimulation } = useSimulationStore();
+  const { setSimulationData, clearSimulation, addToHistory, history } = useSimulationStore();
   const hasResults = steps.length > 0;
   const isMult = activeMethod === 'multiplicative';
   const isMC   = activeMethod === 'monteCarlo';
@@ -114,6 +138,7 @@ export default function Generators() {
         setSteps(results);
         setSimulationData(results, 'midSquares');
         if (results.length < parsedCount) setDegenerated(true);
+        addToHistory({ id: String(Date.now()), method: 'midSquares', seed: parsedSeed, params: { count: parsedCount }, validCount: countValid(results as AnyStep[]), totalCount: results.length, timestamp: Date.now() });
 
       } else if (activeMethod === 'multiplicative') {
         const parsedSeed = parseInt(seed, 10);
@@ -126,6 +151,7 @@ export default function Generators() {
         setSteps(results);
         setSimulationData(results, 'multiplicative');
         if (results.length < parsedCount) setDegenerated(true);
+        addToHistory({ id: String(Date.now()), method: 'multiplicative', seed: parsedSeed, params: { alfa: parsedAlfa, count: parsedCount }, validCount: countValid(results as AnyStep[]), totalCount: results.length, timestamp: Date.now() });
 
       } else if (activeMethod === 'monteCarlo') {
         const parsedA = useDefaults ? MC_DEFAULTS.a : parseInt(aParam, 10);
@@ -151,6 +177,7 @@ export default function Generators() {
         setSteps(results);
         setSimulationData(results, 'monteCarlo');
         if (results.length < parsedCount) setDegenerated(true);
+        addToHistory({ id: String(Date.now()), method: 'monteCarlo', seed: parsedSeed, params: { a: parsedA, c: parsedC, b: parsedB, count: parsedCount, useDefaults: useDefaults ? 1 : 0 }, validCount: countValid(results as AnyStep[]), totalCount: results.length - 1, timestamp: Date.now() });
       }
 
       setResultMethod(activeMethod);
@@ -171,6 +198,41 @@ export default function Generators() {
     setBParam('');
     setUseDefaults(true);
     clearSimulation();
+  };
+
+  const handleRestore = (entry: HistoryEntry) => {
+    setError(null);
+    setDegenerated(false);
+    setActiveMethod(entry.method);
+    setSeed(String(entry.seed));
+    setIterations(String(entry.params.count));
+
+    if (entry.method === 'midSquares') {
+      setAlfa('');
+      const r = generateMidSquares({ seed: entry.seed, count: entry.params.count });
+      setSteps(r);
+      setSimulationData(r, 'midSquares');
+      if (r.length < entry.params.count) setDegenerated(true);
+
+    } else if (entry.method === 'multiplicative') {
+      setAlfa(String(entry.params.alfa));
+      const r = generateMultiplicative({ seed: entry.seed, alfa: entry.params.alfa, count: entry.params.count });
+      setSteps(r);
+      setSimulationData(r, 'multiplicative');
+      if (r.length < entry.params.count) setDegenerated(true);
+
+    } else if (entry.method === 'monteCarlo') {
+      const ud = Boolean(entry.params.useDefaults);
+      setUseDefaults(ud);
+      setAParam(ud ? '' : String(entry.params.a));
+      setCParam(ud ? '' : String(entry.params.c));
+      setBParam(ud ? '' : String(entry.params.b));
+      const r = generateMonteCarlo({ seed: entry.seed, a: entry.params.a, c: entry.params.c, b: entry.params.b, count: entry.params.count });
+      setSteps(r);
+      setSimulationData(r, 'monteCarlo');
+    }
+
+    setResultMethod(entry.method);
   };
 
   const annotated   = annotateSteps(steps);
@@ -463,7 +525,7 @@ export default function Generators() {
             {AlgorithmPanel}
             {ParamsPanel}
           </div>
-          <div className="flex-1 min-h-[180px] bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center gap-3">
+          <div className="min-h-[120px] bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 py-8">
             <Activity size={36} strokeWidth={1.25} className="text-slate-200" />
             <p className="text-sm font-semibold text-slate-400">Los resultados aparecerán aquí</p>
             <p className="text-xs text-slate-400 max-w-xs text-center">
@@ -471,6 +533,46 @@ export default function Generators() {
               <span className="font-bold text-slate-500">Ejecutar Simulación</span>.
             </p>
           </div>
+
+          {/* Historial de simulaciones */}
+          {history.length > 0 && (
+            <div className="bg-white border border-slate-200 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                  <History size={14} />
+                  Historial de Simulaciones
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold">
+                  {history.length} {history.length === 1 ? 'entrada' : 'entradas'}
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {[...history].reverse().map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                    <span className={`text-[9px] font-black uppercase px-2 py-1 tracking-widest flex-shrink-0 ${METHOD_BADGE[entry.method]}`}>
+                      {METHOD_SHORT[entry.method]}
+                    </span>
+                    <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap">
+                      <span className="font-mono font-bold text-sm text-slate-700">X₀ = {entry.seed}</span>
+                      {entry.params.alfa !== undefined && (
+                        <span className="font-mono text-xs text-slate-500">α = {entry.params.alfa}</span>
+                      )}
+                      <span className="text-xs text-slate-400">
+                        <span className="text-accent font-bold">{entry.validCount}</span> válidos · {entry.totalCount} iter.
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">{formatTs(entry.timestamp)}</span>
+                    <button
+                      onClick={() => handleRestore(entry)}
+                      className="flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 border border-accent text-accent hover:bg-accent hover:text-white transition-colors"
+                    >
+                      Restaurar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
