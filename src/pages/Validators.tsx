@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  CheckSquare, 
-  AlertTriangle, 
-  BarChart, 
-  Percent, 
-  LayoutGrid, 
-  Activity, 
-  Settings2, 
-  Play 
+import { InlineMath } from 'react-katex';
+import {
+  CheckSquare,
+  AlertTriangle,
+  BarChart,
+  Percent,
+  LayoutGrid,
+  Activity,
+  Settings2,
+  Play
 } from 'lucide-react';
 import { useSimulationStore } from '../store/useSimulationStore';
 
@@ -114,8 +115,8 @@ export default function Validators() {
             </h2>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">
-                Nivel de Significancia ($\alpha$)
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase flex items-center gap-1">
+                Nivel de Significancia <InlineMath math="\alpha" />
               </label>
               <select
                 value={alpha}

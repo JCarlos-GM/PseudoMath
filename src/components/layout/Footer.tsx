@@ -48,7 +48,7 @@ export default function Footer() {
                 { name: 'Generadores Congruenciales', path: '/generadores' },
                 { name: 'Pruebas de Uniformidad', path: '/validadores' },
                 { name: 'Pruebas de Independencia', path: '/validadores' },
-                { name: 'Simulación Monte Carlo', path: '/generadores' },
+                { name: 'Monte-Carlo', path: '/generadores' },
               ].map((link, i) => (
                 <li key={i}>
                   <Link 

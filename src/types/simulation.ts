@@ -27,9 +27,14 @@ export interface MidSquareParams {
 }
 
 export interface MultiplicativeParams {
-  seed: number; // Semilla (X0)
-  a: number;    // Multiplicador
-  m: number;    // Módulo
+  seed: number; // Semilla (X0) — Beta
+  alfa: number; // Constante multiplicadora — Alfa
+  count: number;
+}
+
+export interface MidProductParams {
+  seed: number;
+  alfa: number;
   count: number;
 }
 
@@ -44,6 +49,9 @@ export interface MidSquareStep extends GeneratedNumber {
 }
 
 export interface MultiplicativeStep extends GeneratedNumber {
-  ax: number;      // a * Xi
-  modResult: number; // (a * Xi) mod m
+  alfa: number;         // constante multiplicadora (Alfa)
+  product: number;      // Alfa × Xᵢ
+  paddedString: string; // producto rellenado a 2d dígitos
+  largo: number;        // longitud = 2d
+  middleDigits: string; // d dígitos centrales del producto
 }
