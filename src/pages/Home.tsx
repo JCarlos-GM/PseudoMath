@@ -99,11 +99,11 @@ export default function Home() {
       {/* ── HERO ──────────────────────────────────────────────── */}
       <div className="text-center max-w-3xl space-y-5">
         <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-none">
-          Análisis de Números<br />
+          Generador de Números<br />
           <span className="text-accent">Pseudoaleatorios</span>
         </h1>
         <p className="text-base text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
-          Suite de generación algorítmica y validación estadística para modelos de simulación matemática.
+          Sistema cuántico de generación algorítmica y validación para modelos de simulación matemática.
         </p>
         <div className="flex items-center justify-center gap-4 pt-2">
           <button
