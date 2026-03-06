@@ -55,3 +55,25 @@ export interface MultiplicativeStep extends GeneratedNumber {
   largo: number;        // longitud = 2d
   middleDigits: string; // d dígitos centrales del producto
 }
+
+// ==========================================
+// 4. Monte Carlo (Congruencial Lineal)
+// ==========================================
+
+export interface MonteCarloParams {
+  seed:  number; // X₀ — semilla inicial (cualquier entero positivo)
+  a:     number; // multiplicador (número impar)
+  c:     number; // incremento   (no cuadrado perfecto)
+  b:     number; // módulo       (potencia de 2 recomendada)
+  count: number;
+}
+
+export interface MonteCarloStep extends GeneratedNumber {
+  // seed      = Xₙ  (el valor x de esta fila)
+  // value     = Rᵢ  = Xₙ / b
+  // isSeedRow = true para n=1 (la semilla, "No vale")
+  isSeedRow: boolean;
+  a: number;
+  c: number;
+  b: number;
+}

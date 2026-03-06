@@ -6,16 +6,19 @@ import {
 } from 'lucide-react';
 import { BlockMath } from 'react-katex';
 import { useSimulationStore } from '../store/useSimulationStore';
-import { generateMidSquares }     from '../core/generators/midSquares';
+import { generateMidSquares }    from '../core/generators/midSquares';
 import { generateMultiplicative } from '../core/generators/multiplicative';
-import type { MidSquareStep, MultiplicativeStep } from '../types/simulation';
+import { generateMonteCarlo }    from '../core/generators/monteCarlo';
+import type { MidSquareStep, MultiplicativeStep, MonteCarloStep } from '../types/simulation';
 
-type AnyStep = MidSquareStep | MultiplicativeStep;
+type AnyStep = MidSquareStep | MultiplicativeStep | MonteCarloStep;
+
+const MC_DEFAULTS = { a: 1103515245, c: 12345, b: 2147483648 };
 
 const GENERATION_METHODS = [
-  { id: 'midSquares',     name: 'Cuadrados Medios',   icon: Maximize, ready: true  },
-  { id: 'multiplicative', name: 'Método Multiplicativo', icon: Hash,   ready: true  },
-  { id: 'monteCarlo',     name: 'Monte-Carlo',         icon: Activity, ready: false },
+  { id: 'midSquares',     name: 'Cuadrados Medios',     icon: Maximize, ready: true  },
+  { id: 'multiplicative', name: 'Método Multiplicativo', icon: Hash,     ready: true  },
+  { id: 'monteCarlo',     name: 'Monte-Carlo',           icon: Activity, ready: true  },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -36,6 +39,8 @@ function HighlightedPadded({ padded, middle }: { padded: string; middle: string 
 function annotateSteps(steps: AnyStep[]) {
   const seen = new Set<string>();
   return steps.map((step) => {
+    // La fila semilla de Monte Carlo nunca participa en detección de duplicados
+    if ((step as any).isSeedRow) return { ...step, isDuplicate: false };
     const key = step.value.toFixed(4);
     const isDuplicate = seen.has(key);
     if (!isDuplicate) seen.add(key);
@@ -44,7 +49,7 @@ function annotateSteps(steps: AnyStep[]) {
 }
 
 function generateRandomSeed(): number {
-  return Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+  return Math.floor(Math.random() * 9000) + 1000;
 }
 
 function copyValidRi(annotated: ReturnType<typeof annotateSteps>, setFeedback: (s: string) => void) {
@@ -57,7 +62,7 @@ function copyValidRi(annotated: ReturnType<typeof annotateSteps>, setFeedback: (
     .catch(() => setFeedback('Error'));
 }
 
-// ── Componente de celda rᵢ (compartido) ──────────────────────
+// ── Celda rᵢ ─────────────────────────────────────────────────
 function RiCell({ value, isDuplicate }: { value: number; isDuplicate: boolean }) {
   if (isDuplicate) return (
     <span className="inline-flex items-center justify-center gap-1.5">
@@ -80,8 +85,16 @@ export default function Generators() {
   const [resultMethod, setResultMethod]           = useState<string>('midSquares');
   const [clipboardFeedback, setClipboardFeedback] = useState<string>('');
 
+  // Monte Carlo state
+  const [aParam, setAParam]           = useState<string>('');
+  const [cParam, setCParam]           = useState<string>('');
+  const [bParam, setBParam]           = useState<string>('');
+  const [useDefaults, setUseDefaults] = useState<boolean>(true);
+
   const { setSimulationData, clearSimulation } = useSimulationStore();
   const hasResults = steps.length > 0;
+  const isMult = activeMethod === 'multiplicative';
+  const isMC   = activeMethod === 'monteCarlo';
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,29 +102,54 @@ export default function Generators() {
     setDegenerated(false);
 
     try {
-      const parsedSeed  = parseInt(seed, 10);
       const parsedCount = parseInt(iterations, 10);
-
-      if (isNaN(parsedSeed) || isNaN(parsedCount))
-        throw new Error('Los parámetros deben ser valores numéricos válidos.');
-      if (parsedSeed < 1000 || parsedSeed > 9999)
-        throw new Error('La semilla debe ser exactamente de 4 dígitos (1000–9999).');
-      if (parsedCount < 1 || parsedCount > 500)
+      if (isNaN(parsedCount) || parsedCount < 1 || parsedCount > 500)
         throw new Error('Las iteraciones deben estar entre 1 y 500.');
 
       if (activeMethod === 'midSquares') {
+        const parsedSeed = parseInt(seed, 10);
+        if (isNaN(parsedSeed) || parsedSeed < 1000 || parsedSeed > 9999)
+          throw new Error('La semilla debe ser exactamente de 4 dígitos (1000–9999).');
         const results = generateMidSquares({ seed: parsedSeed, count: parsedCount });
         setSteps(results);
         setSimulationData(results, 'midSquares');
         if (results.length < parsedCount) setDegenerated(true);
 
       } else if (activeMethod === 'multiplicative') {
+        const parsedSeed = parseInt(seed, 10);
+        if (isNaN(parsedSeed) || parsedSeed < 1000 || parsedSeed > 9999)
+          throw new Error('La semilla debe ser exactamente de 4 dígitos (1000–9999).');
         const parsedAlfa = parseInt(alfa, 10);
         if (isNaN(parsedAlfa) || parsedAlfa < 1000 || parsedAlfa > 9999)
           throw new Error('Alfa debe ser exactamente de 4 dígitos (1000–9999).');
         const results = generateMultiplicative({ alfa: parsedAlfa, seed: parsedSeed, count: parsedCount });
         setSteps(results);
         setSimulationData(results, 'multiplicative');
+        if (results.length < parsedCount) setDegenerated(true);
+
+      } else if (activeMethod === 'monteCarlo') {
+        const parsedA = useDefaults ? MC_DEFAULTS.a : parseInt(aParam, 10);
+        const parsedC = useDefaults ? MC_DEFAULTS.c : parseInt(cParam, 10);
+        const parsedB = useDefaults ? MC_DEFAULTS.b : parseInt(bParam, 10);
+
+        if (!useDefaults) {
+          if (isNaN(parsedA) || parsedA <= 0 || parsedA % 2 === 0)
+            throw new Error('El parámetro a debe ser un número impar positivo.');
+          if (isNaN(parsedC) || parsedC <= 0)
+            throw new Error('El parámetro c debe ser un número positivo.');
+          if (isNaN(parsedB) || parsedB <= 1)
+            throw new Error('El parámetro b debe ser mayor que 1.');
+          if (parsedC >= parsedB)
+            throw new Error('El parámetro c debe ser menor que b.');
+        }
+
+        const parsedSeed = parseInt(seed, 10);
+        if (isNaN(parsedSeed) || parsedSeed <= 0)
+          throw new Error('La semilla debe ser un entero positivo.');
+
+        const results = generateMonteCarlo({ seed: parsedSeed, a: parsedA, c: parsedC, b: parsedB, count: parsedCount });
+        setSteps(results);
+        setSimulationData(results, 'monteCarlo');
         if (results.length < parsedCount) setDegenerated(true);
       }
 
@@ -128,13 +166,19 @@ export default function Generators() {
     setSeed('');
     setAlfa('');
     setIterations('20');
+    setAParam('');
+    setCParam('');
+    setBParam('');
+    setUseDefaults(true);
     clearSimulation();
   };
 
-  const annotated  = annotateSteps(steps);
-  const validCount = annotated.filter((s) => !s.isDuplicate).length;
-  const dupCount   = annotated.length - validCount;
-  const hasDups    = dupCount > 0;
+  const annotated   = annotateSteps(steps);
+  // Para MC excluimos la fila semilla ("No vale") de los contadores
+  const countable   = annotated.filter((s) => !(s as any).isSeedRow);
+  const validCount  = countable.filter((s) => !s.isDuplicate).length;
+  const dupCount    = countable.length - validCount;
+  const hasDups     = dupCount > 0;
 
   // ── Paneles de configuración ────────────────────────────────
   const AlgorithmPanel = (
@@ -160,16 +204,11 @@ export default function Generators() {
           >
             <method.icon size={hasResults ? 16 : 20} />
             <span className="flex-1">{method.name}</span>
-            {!method.ready && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Pronto</span>
-            )}
           </button>
         ))}
       </div>
     </div>
   );
-
-  const isMult = activeMethod === 'multiplicative';
 
   const ParamsPanel = (
     <form onSubmit={handleGenerate} className="bg-white border border-slate-200 p-6 shadow-sm flex flex-col gap-5 flex-shrink-0">
@@ -182,6 +221,92 @@ export default function Generators() {
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-bold p-3 flex items-start gap-2">
           <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
           {error}
+        </div>
+      )}
+
+      {/* ── Parámetros exclusivos de Monte Carlo ── */}
+      {isMC && (
+        <div className="flex flex-col gap-3">
+          {/* Toggle */}
+          <div className="flex border border-slate-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setUseDefaults(true)}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                useDefaults ? 'bg-accent text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              Predeterminados
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseDefaults(false)}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors border-l border-slate-300 ${
+                !useDefaults ? 'bg-accent text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              Manual
+            </button>
+          </div>
+
+          {useDefaults ? (
+            <div className="bg-slate-50 border border-slate-200 p-3">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Valores óptimos (glibc LCG)</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {([['a', MC_DEFAULTS.a], ['c', MC_DEFAULTS.c], ['b', MC_DEFAULTS.b]] as [string, number][]).map(([key, val]) => (
+                  <div key={key} className="bg-white border border-slate-200 p-2">
+                    <p className="text-[9px] uppercase font-bold text-slate-400">{key}</p>
+                    <p className={`font-mono font-bold text-slate-700 ${hasResults ? 'text-[10px]' : 'text-xs'}`}>{val.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className={`block font-bold text-slate-600 uppercase mb-1.5 ${hasResults ? 'text-xs' : 'text-sm'}`}>
+                  a <span className="font-normal normal-case text-slate-400">(multiplicador)</span>
+                </label>
+                <input
+                  type="number"
+                  value={aParam}
+                  onChange={(e) => setAParam(e.target.value)}
+                  placeholder="Ej. 1103515245"
+                  className={`w-full bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all ${hasResults ? 'text-sm p-2.5' : 'text-base p-3'}`}
+                  required
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Número impar (no par).</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`block font-bold text-slate-600 uppercase mb-1.5 ${hasResults ? 'text-xs' : 'text-sm'}`}>c</label>
+                  <input
+                    type="number"
+                    value={cParam}
+                    onChange={(e) => setCParam(e.target.value)}
+                    placeholder="Ej. 12345"
+                    className={`w-full bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all ${hasResults ? 'text-sm p-2.5' : 'text-base p-3'}`}
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">No cuadrado perfecto.</p>
+                </div>
+                <div>
+                  <label className={`block font-bold text-slate-600 uppercase mb-1.5 ${hasResults ? 'text-xs' : 'text-sm'}`}>
+                    b <span className="font-normal normal-case text-slate-400">(módulo)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={bParam}
+                    onChange={(e) => setBParam(e.target.value)}
+                    placeholder="Ej. 2147483648"
+                    className={`w-full bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all ${hasResults ? 'text-sm p-2.5' : 'text-base p-3'}`}
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Cuadrado perfecto (2ⁿ).</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -227,9 +352,9 @@ export default function Generators() {
               type="number"
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
-              placeholder="Ej. 4321"
-              min={1000}
-              max={9999}
+              placeholder={isMC ? 'Ej. 83' : 'Ej. 4321'}
+              min={isMC ? 1 : 1000}
+              max={isMC ? undefined : 9999}
               className={`flex-1 min-w-0 bg-slate-50 text-slate-800 focus:outline-none ${hasResults ? 'text-sm p-2.5' : 'text-base p-3'}`}
               required
             />
@@ -242,11 +367,13 @@ export default function Generators() {
               <Dice5 size={16} />
             </button>
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">Exactamente 4 dígitos (1000–9999).</p>
+          <p className="text-[10px] text-slate-400 mt-1">
+            {isMC ? 'Entero positivo.' : 'Exactamente 4 dígitos (1000–9999).'}
+          </p>
         </div>
 
         {/* Iteraciones */}
-        <div className={isMult ? 'sm:col-span-2' : ''}>
+        <div>
           <label className={`block font-bold text-slate-600 mb-1.5 uppercase ${hasResults ? 'text-xs' : 'text-sm'}`}>
             Iteraciones n
           </label>
@@ -268,7 +395,12 @@ export default function Generators() {
       <div className="bg-slate-50 border border-slate-200 p-4 text-center space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Fórmula</p>
         <div className="space-y-1 text-slate-700">
-          {isMult ? (
+          {isMC ? (
+            <>
+              <BlockMath math={`X_{n+1} = (a \\cdot X_n + c) \\bmod b`} />
+              <BlockMath math={`r_i = \\frac{X_{n+1}}{b}`} />
+            </>
+          ) : isMult ? (
             <>
               <BlockMath math={`X_{i+1} = \\text{centrales}(\\alpha \\times X_i)`} />
               <BlockMath math={`r_i = \\frac{X_{i+1}}{10^d}`} />
@@ -296,6 +428,7 @@ export default function Generators() {
   const METHOD_LABELS: Record<string, string> = {
     midSquares:     'Cuadrados Medios',
     multiplicative: 'Método Multiplicativo',
+    monteCarlo:     'Monte-Carlo (Congruencial Lineal)',
   };
 
   return (
@@ -359,7 +492,7 @@ export default function Generators() {
               <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                 Resultados — {METHOD_LABELS[resultMethod]}
               </h3>
-              <span className="text-xs font-bold text-slate-400">{steps.length} iteraciones generadas</span>
+              <span className="text-xs font-bold text-slate-400">{countable.length} iteraciones generadas</span>
             </div>
 
             {/* Banner de duplicados */}
@@ -387,7 +520,9 @@ export default function Generators() {
 
             {/* Cuerpo de tabla */}
             <div className="flex-1 overflow-auto">
-              {resultMethod === 'midSquares' ? (
+
+              {/* Tabla: Cuadrados Medios */}
+              {resultMethod === 'midSquares' && (
                 <table className="w-full text-sm border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-accent text-white">
@@ -426,7 +561,10 @@ export default function Generators() {
                     })}
                   </tbody>
                 </table>
-              ) : (
+              )}
+
+              {/* Tabla: Multiplicativo */}
+              {resultMethod === 'multiplicative' && (
                 <table className="w-full text-sm border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-accent text-white">
@@ -470,11 +608,56 @@ export default function Generators() {
                   </tbody>
                 </table>
               )}
+
+              {/* Tabla: Monte Carlo */}
+              {resultMethod === 'monteCarlo' && (
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-accent text-white">
+                      <th className="px-4 py-3.5 font-bold uppercase tracking-widest text-center text-white/70 w-14">n</th>
+                      <th className="px-4 py-3.5 font-bold uppercase tracking-widest text-center">x</th>
+                      <th className="px-4 py-3.5 font-bold uppercase tracking-widest text-center">Rᵢ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {annotated.map((row, idx) => {
+                      const r = row as MonteCarloStep & { isDuplicate: boolean };
+
+                      // Fila semilla — "No vale"
+                      if (r.isSeedRow) return (
+                        <tr key={r.iteration} className="bg-slate-100 border-b border-slate-200">
+                          <td className="px-4 py-3 text-center font-mono font-bold text-sm text-slate-400">{r.iteration}</td>
+                          <td className="px-4 py-3 text-center font-mono text-sm text-slate-400">{r.seed}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                              <span className="font-mono text-sm text-slate-400">{r.value.toFixed(4)}</span>
+                              <span className="text-[9px] font-black uppercase bg-slate-400 text-white px-1.5 py-0.5 tracking-wider">No vale</span>
+                            </span>
+                          </td>
+                        </tr>
+                      );
+
+                      // Filas generadas
+                      const bg = r.isDuplicate ? 'bg-red-50 hover:bg-red-100'
+                        : idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/70 hover:bg-slate-100';
+                      const tb = r.isDuplicate ? 'text-red-600' : 'text-slate-800';
+                      return (
+                        <tr key={r.iteration} className={`${bg} transition-colors border-b border-slate-100`}>
+                          <td className="px-4 py-3 text-center font-mono font-bold text-sm text-slate-400">{r.iteration}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-bold text-sm ${tb}`}>{r.seed}</td>
+                          <td className="px-4 py-3 text-center"><RiCell value={r.value} isDuplicate={r.isDuplicate} /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+
             </div>
 
             {/* Footer */}
             <div className="border-t border-slate-200 px-5 py-3 bg-slate-50 flex items-center gap-6 flex-shrink-0 flex-wrap">
-              <Stat label="n total"    value={steps.length.toString()} />
+              <Stat label="n total"    value={countable.length.toString()} />
               <Stat label="Únicos"     value={validCount.toString()} accent />
               <Stat label="Duplicados" value={dupCount.toString()} danger={hasDups} />
               <button
