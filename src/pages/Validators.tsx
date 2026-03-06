@@ -1,50 +1,307 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineMath } from 'react-katex';
 import {
   CheckSquare, AlertTriangle, BarChart, Percent, LayoutGrid,
   Activity, Settings2, Play, History, CheckCircle, XCircle,
 } from 'lucide-react';
+import {
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer,
+} from 'recharts';
 import { useSimulationStore } from '../store/useSimulationStore';
 import { generateMidSquares }    from '../core/generators/midSquares';
 import { generateMultiplicative } from '../core/generators/multiplicative';
 import { generateMonteCarlo }    from '../core/generators/monteCarlo';
 import { testMeans, type MeansResult } from '../core/validators/means';
-import type { HistoryEntry } from '../types/simulation';
+import type { HistoryEntry, GeneratedNumber } from '../types/simulation';
 
+// ── Constants ─────────────────────────────────────────────────
 const VALIDATION_TESTS = [
-  { id: 'means',       name: 'Prueba de Medias',              icon: Percent,    ready: true  },
-  { id: 'variance',    name: 'Prueba de Varianza',            icon: BarChart,   ready: false },
-  { id: 'chiSquare',   name: 'Prueba Chi-Cuadrada',           icon: LayoutGrid, ready: false },
-  { id: 'kolmogorov',  name: 'Prueba Kolmogorov-Smirnov',     icon: Activity,   ready: false },
-  { id: 'poker',       name: 'Prueba de Póker',               icon: CheckSquare,ready: false },
+  { id: 'means',      name: 'Prueba de Medias',           icon: Percent,    ready: true  },
+  { id: 'variance',   name: 'Prueba de Varianza',         icon: BarChart,   ready: false },
+  { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: false },
+  { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: false },
+  { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: false },
 ];
-
 const METHOD_BADGE: Record<string, string> = {
   midSquares:     'bg-accent text-white',
   multiplicative: 'bg-slate-700 text-white',
   monteCarlo:     'bg-emerald-600 text-white',
 };
 const METHOD_SHORT: Record<string, string> = {
-  midSquares:     'C.M.',
-  multiplicative: 'MULT',
-  monteCarlo:     'M.C.',
+  midSquares: 'C.M.', multiplicative: 'MULT', monteCarlo: 'M.C.',
 };
-const Z_LABEL: Record<string, string> = { '0.01': '2.576', '0.05': '1.96', '0.10': '1.645' };
+const Z_LABEL: Record<string, string> = {
+  '0.01': '2.576', '0.05': '1.96', '0.10': '1.645',
+};
 
 function formatTs(ts: number) {
   return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
+// ── Normal PDF ────────────────────────────────────────────────
+function normalPDF(x: number, mu: number, sigma: number) {
+  return Math.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+}
+
+// ── Custom Tooltip styles ──────────────────────────────────────
+const tooltipStyle = {
+  fontSize: 11,
+  border: '1px solid #e2e8f0',
+  borderRadius: 0,
+  backgroundColor: '#fff',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+};
+
+// ── Bell Curve Chart ──────────────────────────────────────────
+function BellCurveChart({ result }: { result: MeansResult }) {
+  const { mean, lowerLimit, upperLimit } = result;
+  const mu     = 0.5;
+  const sigma  = 1 / result.sqrtFactor;
+  const passed = mean >= lowerLimit && mean <= upperLimit;
+  const meanColor = passed ? '#16a34a' : '#dc2626';
+
+  const { data, xMin, xMax } = useMemo(() => {
+    const POINTS = 350;
+    const r  = 4.5 * sigma;
+    const x0 = mu - r;
+    const x1 = mu + r;
+    const d  = Array.from({ length: POINTS }, (_, i) => {
+      const x = x0 + (i / (POINTS - 1)) * (x1 - x0);
+      return { x: +x.toFixed(6), y: +normalPDF(x, mu, sigma).toFixed(6) };
+    });
+    return { data: d, xMin: x0, xMax: x1 };
+  }, [mu, sigma]);
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 28, right: 28, left: 0, bottom: 8 }}>
+        {/* Shaded regions */}
+        <ReferenceArea x1={xMin}        x2={lowerLimit} fill="#fee2e2" fillOpacity={0.65} ifOverflow="hidden" />
+        <ReferenceArea x1={lowerLimit}  x2={upperLimit} fill="#dcfce7" fillOpacity={0.65} ifOverflow="hidden" />
+        <ReferenceArea x1={upperLimit}  x2={xMax}       fill="#fee2e2" fillOpacity={0.65} ifOverflow="hidden" />
+
+        <XAxis
+          dataKey="x"
+          type="number"
+          domain={[xMin, xMax]}
+          scale="linear"
+          tickCount={7}
+          tickFormatter={(v) => (+v).toFixed(3)}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={{ stroke: '#e2e8f0' }}
+          tickLine={false}
+        />
+        <YAxis hide domain={[0, 'auto']} />
+
+        <Tooltip
+          formatter={(v: number) => [v.toFixed(5), 'f(x)']}
+          labelFormatter={(x) => `x = ${(+x).toFixed(5)}`}
+          contentStyle={tooltipStyle}
+          itemStyle={{ color: '#4f46e5' }}
+          cursor={{ stroke: '#c7d2fe', strokeWidth: 1, strokeDasharray: '3 3' }}
+        />
+
+        {/* Bell curve */}
+        <Area
+          type="monotone"
+          dataKey="y"
+          stroke="#4f46e5"
+          strokeWidth={2.5}
+          fill="#eef2ff"
+          fillOpacity={0.55}
+          dot={false}
+          animationDuration={900}
+          animationEasing="ease-out"
+        />
+
+        {/* μ = 0.5 */}
+        <ReferenceLine
+          x={0.5}
+          stroke="#94a3b8"
+          strokeDasharray="5 4"
+          strokeWidth={1.5}
+          label={{ value: 'μ=0.5', position: 'insideTopRight', fontSize: 9, fill: '#94a3b8', fontWeight: 600 }}
+        />
+        {/* Lᵢ */}
+        <ReferenceLine
+          x={lowerLimit}
+          stroke="#059669"
+          strokeDasharray="3 3"
+          strokeWidth={1.5}
+          label={{ value: `Lᵢ ${lowerLimit.toFixed(4)}`, position: 'insideTopLeft', fontSize: 9, fill: '#059669' }}
+        />
+        {/* Lₛ */}
+        <ReferenceLine
+          x={upperLimit}
+          stroke="#059669"
+          strokeDasharray="3 3"
+          strokeWidth={1.5}
+          label={{ value: `Lₛ ${upperLimit.toFixed(4)}`, position: 'insideTopRight', fontSize: 9, fill: '#059669' }}
+        />
+        {/* r̄ muestral */}
+        <ReferenceLine
+          x={mean}
+          stroke={meanColor}
+          strokeWidth={2.5}
+          label={{ value: `r̄=${mean.toFixed(4)}`, position: 'top', fontSize: 10, fill: meanColor, fontWeight: 700 }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── Sequence Chart ────────────────────────────────────────────
+function SequenceChart({ numbers, result }: { numbers: GeneratedNumber[]; result: MeansResult }) {
+  const { mean, lowerLimit, upperLimit } = result;
+  const passed    = mean >= lowerLimit && mean <= upperLimit;
+  const meanColor = passed ? '#16a34a' : '#dc2626';
+
+  const data = useMemo(
+    () => numbers.map((n, i) => ({ n: i + 1, ri: +n.value.toFixed(4) })),
+    [numbers],
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 20, right: 24, left: 0, bottom: 8 }}>
+        <ReferenceArea y1={lowerLimit} y2={upperLimit} fill="#dcfce7" fillOpacity={0.55} />
+        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+
+        <XAxis
+          dataKey="n"
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={{ stroke: '#e2e8f0' }}
+          tickLine={false}
+          label={{ value: 'N', position: 'insideBottomRight', fontSize: 10, fill: '#94a3b8', offset: -4 }}
+        />
+        <YAxis
+          domain={[0, 1]}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={false}
+          tickLine={false}
+          tickCount={6}
+          width={36}
+        />
+        <Tooltip
+          formatter={(v: number) => [v.toFixed(4), 'Rᵢ']}
+          labelFormatter={(n) => `N = ${n}`}
+          contentStyle={tooltipStyle}
+          itemStyle={{ color: '#4f46e5' }}
+          cursor={{ stroke: '#c7d2fe', strokeWidth: 1 }}
+        />
+
+        <ReferenceLine y={0.5}        stroke="#cbd5e1" strokeDasharray="5 4"  strokeWidth={1}   />
+        <ReferenceLine y={lowerLimit} stroke="#059669" strokeDasharray="3 3"  strokeWidth={1}   />
+        <ReferenceLine y={upperLimit} stroke="#059669" strokeDasharray="3 3"  strokeWidth={1}   />
+        <ReferenceLine y={mean}       stroke={meanColor} strokeDasharray="4 4" strokeWidth={1.5}
+          label={{ value: 'r̄', position: 'insideTopRight', fontSize: 10, fill: meanColor, fontWeight: 700 }}
+        />
+
+        <Line
+          type="linear"
+          dataKey="ri"
+          stroke="#c7d2fe"
+          strokeWidth={1}
+          dot={{ r: 2.5, fill: '#4f46e5', strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: '#4f46e5', strokeWidth: 0 }}
+          animationDuration={700}
+          animationEasing="ease-out"
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── Advanced stats row ────────────────────────────────────────
+function AdvancedStats({ riValues, result }: { riValues: number[]; result: MeansResult }) {
+  const n      = riValues.length;
+  const min    = Math.min(...riValues);
+  const max    = Math.max(...riValues);
+  const empVar = riValues.reduce((s, r) => s + (r - result.mean) ** 2, 0) / n;
+  const empStd = Math.sqrt(empVar);
+  const se     = 1 / result.sqrtFactor;
+
+  const stats = [
+    { label: 'n',              sub: '',         value: n.toString()                   },
+    { label: 'Mínimo',         sub: 'min(Rᵢ)',  value: min.toFixed(6)                 },
+    { label: 'Máximo',         sub: 'max(Rᵢ)',  value: max.toFixed(6)                 },
+    { label: 'Rango',          sub: 'max−min',  value: (max - min).toFixed(6)         },
+    { label: 'Var. empírica',  sub: 's²',       value: empVar.toFixed(6)              },
+    { label: 'Desv. estánd.',  sub: 's',        value: empStd.toFixed(6)              },
+    { label: 'Var. teórica',   sub: '1/12',     value: (1 / 12).toFixed(6)            },
+    { label: 'Error estánd.',  sub: '1/√(12n)', value: se.toFixed(6)                  },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      {stats.map((s) => (
+        <div key={s.label} className="bg-slate-50 border border-slate-200 p-3">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 leading-snug">{s.label}</p>
+          <p className="text-[9px] font-mono text-slate-300 leading-snug">{s.sub}</p>
+          <p className="font-mono font-black text-sm text-slate-700 tabular-nums mt-1">{s.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Legend helper ──────────────────────────────────────────────
+function LegendRow({ items }: {
+  items: { color: string; dashed?: boolean; fill?: string; label: string }[]
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-center gap-1.5">
+          {item.fill ? (
+            <div className="w-4 h-3.5 border border-slate-200" style={{ backgroundColor: item.fill }} />
+          ) : (
+            <svg width="22" height="10" aria-hidden="true">
+              <line x1="0" y1="5" x2="22" y2="5"
+                stroke={item.color} strokeWidth="2"
+                strokeDasharray={item.dashed ? '4 3' : undefined}
+              />
+            </svg>
+          )}
+          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── StatCard ───────────────────────────────────────────────────
+function StatCard({ label, value, highlight }: {
+  label: string; value: string; highlight?: 'green' | 'red';
+}) {
+  return (
+    <div className={`border p-3 ${
+      highlight === 'green' ? 'bg-emerald-50 border-emerald-200'
+      : highlight === 'red' ? 'bg-red-50 border-red-200'
+      : 'bg-slate-50 border-slate-200'
+    }`}>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+      <p className={`font-mono font-black text-sm tabular-nums ${
+        highlight === 'green' ? 'text-emerald-700'
+        : highlight === 'red'  ? 'text-red-600'
+        : 'text-slate-800'
+      }`}>{value}</p>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────
 export default function Validators() {
   const navigate = useNavigate();
   const { generatedNumbers, methodUsed, setSimulationData, history } = useSimulationStore();
 
-  const [activeTest, setActiveTest] = useState<string>('means');
-  const [alpha, setAlpha]           = useState<string>('0.05');
-  const [meansResult, setMeansResult] = useState<MeansResult | null>(null);
+  const [activeTest, setActiveTest]     = useState<string>('means');
+  const [alpha, setAlpha]               = useState<string>('0.05');
+  const [meansResult, setMeansResult]   = useState<MeansResult | null>(null);
 
-  // Excluir la fila semilla de Monte Carlo
+  // Excluir fila semilla de Monte Carlo
   const displayNumbers = generatedNumbers.filter(n => !(n as any).isSeedRow);
   const riValues       = displayNumbers.map(n => n.value);
 
@@ -61,9 +318,7 @@ export default function Validators() {
 
   const handleValidate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTest === 'means') {
-      setMeansResult(testMeans(riValues, parseFloat(alpha)));
-    }
+    if (activeTest === 'means') setMeansResult(testMeans(riValues, parseFloat(alpha)));
   };
 
   // ── Sin datos y sin historial ────────────────────────────────
@@ -110,13 +365,10 @@ export default function Validators() {
             Ir al Laboratorio
           </button>
         </div>
-
         <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
           <div className="flex items-center px-5 py-3 border-b border-slate-100 bg-slate-50 gap-2">
             <History size={14} className="text-slate-500" />
-            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-              Historial de Simulaciones
-            </h3>
+            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Historial de Simulaciones</h3>
           </div>
           <div className="divide-y divide-slate-100">
             {[...history].reverse().map((entry) => (
@@ -149,8 +401,6 @@ export default function Validators() {
   }
 
   // ── Vista principal ──────────────────────────────────────────
-  const descendingNumbers = displayNumbers;
-
   return (
     <div className="h-full flex flex-col gap-6">
 
@@ -169,12 +419,12 @@ export default function Validators() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 flex-1">
+      {/* Config + Reporte + Tabla */}
+      <div className="flex flex-col lg:flex-row gap-6">
 
         {/* Panel izquierdo */}
-        <div className="w-full lg:w-1/3 flex flex-col gap-6">
+        <div className="w-full lg:w-1/3 flex flex-col gap-6 flex-shrink-0">
 
-          {/* Selector de prueba */}
           <div className="bg-white border border-slate-300 p-6 shadow-sm">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Settings2 size={16} />
@@ -201,13 +451,11 @@ export default function Validators() {
             </div>
           </div>
 
-          {/* Parámetros + ejecutar */}
           <form onSubmit={handleValidate} className="bg-white border border-slate-300 p-6 shadow-sm flex flex-col gap-5">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <LayoutGrid size={16} />
               Parámetros de Evaluación
             </h2>
-
             <div>
               <label className="flex items-center gap-1 text-xs font-bold text-slate-600 mb-1.5 uppercase">
                 Nivel de Significancia <InlineMath math="\alpha" />
@@ -222,7 +470,6 @@ export default function Validators() {
                 <option value="0.10">0.10 (90% Confianza)</option>
               </select>
             </div>
-
             {activeTest === 'means' && (
               <div className="bg-slate-50 border border-slate-200 p-3 text-center space-y-1">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Criterio de Aceptación</p>
@@ -232,7 +479,6 @@ export default function Validators() {
                 </p>
               </div>
             )}
-
             <button
               type="submit"
               className="mt-2 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-bold py-3 px-4 hover:bg-accent transition-colors"
@@ -246,7 +492,7 @@ export default function Validators() {
         {/* Panel derecho */}
         <div className="w-full lg:w-2/3 flex flex-col gap-6">
 
-          {/* Reporte */}
+          {/* Reporte numérico */}
           <div className="bg-white border border-slate-300 shadow-sm flex flex-col">
             <div className="border-b border-slate-300 p-4 bg-slate-50 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Reporte Analítico</h3>
@@ -261,7 +507,6 @@ export default function Validators() {
                 </div>
               )}
             </div>
-
             {!meansResult ? (
               <div className="flex flex-col items-center justify-center p-10 text-slate-400">
                 <LayoutGrid size={40} className="mb-3 text-slate-200" strokeWidth={1.5} />
@@ -269,28 +514,12 @@ export default function Validators() {
               </div>
             ) : (
               <div className="p-6 flex flex-col gap-5">
-                {/* Cuadrícula de estadísticos — igual que en Excel */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <StatCard
-                    label="Promedio (r̄)"
-                    value={meansResult.mean.toFixed(7)}
-                    highlight={meansResult.passed ? 'green' : 'red'}
-                  />
-                  <StatCard
-                    label={`√(12·${meansResult.n})`}
-                    value={meansResult.sqrtFactor.toFixed(7)}
-                  />
-                  <StatCard
-                    label="L. Inferior (Lᵢ)"
-                    value={meansResult.lowerLimit.toFixed(8)}
-                  />
-                  <StatCard
-                    label="L. Superior (Lₛ)"
-                    value={meansResult.upperLimit.toFixed(8)}
-                  />
+                  <StatCard label="Promedio (r̄)" value={meansResult.mean.toFixed(7)} highlight={meansResult.passed ? 'green' : 'red'} />
+                  <StatCard label={`√(12·${meansResult.n})`} value={meansResult.sqrtFactor.toFixed(7)} />
+                  <StatCard label="L. Inferior (Lᵢ)" value={meansResult.lowerLimit.toFixed(8)} />
+                  <StatCard label="L. Superior (Lₛ)" value={meansResult.upperLimit.toFixed(8)} />
                 </div>
-
-                {/* Veredicto */}
                 <div className={`p-4 border text-sm font-semibold leading-relaxed ${
                   meansResult.passed
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -306,12 +535,12 @@ export default function Validators() {
           </div>
 
           {/* Tabla de secuencia */}
-          <div className="bg-white border border-slate-300 shadow-sm flex flex-col flex-1">
+          <div className="bg-white border border-slate-300 shadow-sm flex flex-col">
             <div className="border-b border-slate-300 p-4 bg-slate-50 flex justify-between items-center flex-shrink-0">
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Secuencia de Entrada</h3>
               <span className="text-xs text-slate-400 font-bold">{displayNumbers.length} números</span>
             </div>
-            <div className="overflow-auto max-h-72">
+            <div className="overflow-auto max-h-56">
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-slate-900 text-white">
@@ -320,17 +549,15 @@ export default function Validators() {
                   </tr>
                 </thead>
                 <tbody>
-                  {descendingNumbers.map((num, idx) => (
+                  {displayNumbers.map((num, idx) => (
                     <tr
                       key={num.iteration}
                       className={`border-b border-slate-100 transition-colors ${
                         idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/70 hover:bg-slate-100'
                       }`}
                     >
-                      <td className="px-4 py-2.5 text-center font-mono font-bold text-sm text-slate-400">
-                        {idx + 1}
-                      </td>
-                      <td className="px-4 py-2.5 text-center font-mono font-black text-sm text-accent tabular-nums">
+                      <td className="px-4 py-2 text-center font-mono font-bold text-sm text-slate-400">{idx + 1}</td>
+                      <td className="px-4 py-2 text-center font-mono font-black text-sm text-accent tabular-nums">
                         {num.value.toFixed(4)}
                       </td>
                     </tr>
@@ -339,32 +566,64 @@ export default function Validators() {
               </table>
             </div>
           </div>
-
         </div>
       </div>
-    </div>
-  );
-}
 
-function StatCard({ label, value, highlight }: {
-  label: string;
-  value: string;
-  highlight?: 'green' | 'red';
-}) {
-  return (
-    <div className={`border p-3 ${
-      highlight === 'green' ? 'bg-emerald-50 border-emerald-200'
-      : highlight === 'red' ? 'bg-red-50 border-red-200'
-      : 'bg-slate-50 border-slate-200'
-    }`}>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-      <p className={`font-mono font-black text-sm tabular-nums ${
-        highlight === 'green' ? 'text-emerald-700'
-        : highlight === 'red' ? 'text-red-600'
-        : 'text-slate-800'
-      }`}>
-        {value}
-      </p>
+      {/* ── Análisis Gráfico (solo cuando hay resultado) ─────── */}
+      {meansResult && (
+        <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
+          <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Prueba de Medias · n = {meansResult.n} · α = {meansResult.alpha}
+            </span>
+          </div>
+
+          <div className="p-6 flex flex-col gap-8">
+
+            {/* Gráficas */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+              {/* Campana de Gauss */}
+              <div className="lg:col-span-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                  Distribución de Muestreo de <InlineMath math="\bar{r} \sim \mathcal{N}\!\left(0.5,\,\tfrac{1}{\sqrt{12n}}\right)" />
+                </p>
+                <BellCurveChart result={meansResult} />
+                <LegendRow items={[
+                  { fill: '#dcfce7', color: '#059669', label: 'Zona de aceptación' },
+                  { fill: '#fee2e2', color: '#ef4444', label: 'Zona de rechazo' },
+                  { color: meansResult.passed ? '#16a34a' : '#dc2626', label: 'r̄ muestral' },
+                  { color: '#94a3b8', dashed: true, label: 'μ = 0.5 (teórica)' },
+                  { color: '#059669', dashed: true, label: 'Lᵢ / Lₛ' },
+                ]} />
+              </div>
+
+              {/* Secuencia Rᵢ */}
+              <div className="lg:col-span-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                  Secuencia Rᵢ por iteración
+                </p>
+                <SequenceChart numbers={displayNumbers} result={meansResult} />
+                <LegendRow items={[
+                  { fill: '#dcfce7', color: '#059669', label: 'Banda [Lᵢ, Lₛ]' },
+                  { color: '#4f46e5', label: 'Rᵢ' },
+                  { color: meansResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄ muestral' },
+                  { color: '#94a3b8', dashed: true, label: 'μ = 0.5' },
+                ]} />
+              </div>
+            </div>
+
+            {/* Estadísticos descriptivos */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
+                Estadísticos Descriptivos
+              </p>
+              <AdvancedStats riValues={riValues} result={meansResult} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
