@@ -19,6 +19,7 @@ import { testVariance, type VarianceResult, chiSquarePDF } from '../core/validat
 import { testChiSquare, type ChiSquareGoFResult } from '../core/validators/chiSquare';
 import { testKolmogorov, type KSResult } from '../core/validators/kolmogorov';
 import { testPoker, type PokerResult } from '../core/validators/poker';
+import { testRuns,  type RunsResult  } from '../core/validators/runs';
 import type { HistoryEntry, GeneratedNumber } from '../types/simulation';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -28,6 +29,7 @@ const VALIDATION_TESTS = [
   { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: true  },
   { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: true  },
   { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: true  },
+  { id: 'runs',       name: 'Prueba de Corridas',         icon: Activity,   ready: true  },
 ];
 const METHOD_BADGE: Record<string, string> = {
   midSquares:     'bg-accent text-white',
@@ -270,6 +272,39 @@ function StatCard({ label, value, highlight }: {
   );
 }
 
+// ── Runs Sign Sequence Chart ──────────────────────────────────
+function RunsChart({ result }: { result: RunsResult }) {
+  const data = useMemo(
+    () => result.signs.map((s, i) => ({ i: i + 1, sign: s })),
+    [result.signs],
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <ComposedChart data={data} margin={{ top: 16, right: 16, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+        <XAxis dataKey="i"
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={{ stroke: '#e2e8f0' }} tickLine={false}
+          label={{ value: 'i', position: 'insideBottomRight', fontSize: 10, fill: '#94a3b8', offset: -4 }} />
+        <YAxis domain={[-0.1, 1.1]} ticks={[0, 1]} tickCount={2}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={false} tickLine={false} width={20}
+          tickFormatter={(v) => v === 1 ? '↑' : '↓'} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: any) => [v === 1 ? '↑ Sube' : '↓ Baja', 'Signo']}
+          labelFormatter={(i) => `Comparación i=${i}`}
+          cursor={{ stroke: '#c7d2fe', strokeWidth: 1 }}
+        />
+        <Bar dataKey="sign" maxBarSize={16} radius={0}
+          fill="#4f46e5" fillOpacity={0.8} />
+        <ReferenceLine y={0.5} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth={1} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 // ── Poker Category Chart ──────────────────────────────────────
 function PokerChart({ result }: { result: PokerResult }) {
   const data = useMemo(
@@ -421,11 +456,12 @@ export default function Validators() {
   const [chiSquareResult, setChiSquareResult]   = useState<ChiSquareGoFResult| null>(null);
   const [ksResult, setKsResult]                 = useState<KSResult          | null>(null);
   const [pokerResult, setPokerResult]           = useState<PokerResult       | null>(null);
+  const [runsResult,  setRunsResult]            = useState<RunsResult        | null>(null);
 
   const displayNumbers = generatedNumbers.filter(n => !(n as any).isSeedRow);
   const riValues       = displayNumbers.map(n => n.value);
 
-  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); setKsResult(null); setPokerResult(null); };
+  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); setKsResult(null); setPokerResult(null); setRunsResult(null); };
 
   const switchTest = (id: string) => { setActiveTest(id); clearResults(); };
 
@@ -448,6 +484,7 @@ export default function Validators() {
     if (activeTest === 'chiSquare')  setChiSquareResult(testChiSquare(riValues, a));
     if (activeTest === 'kolmogorov') setKsResult(testKolmogorov(riValues, a));
     if (activeTest === 'poker')      setPokerResult(testPoker(riValues, a));
+    if (activeTest === 'runs')       setRunsResult(testRuns(riValues, a));
   };
 
   // Resultado activo
@@ -456,7 +493,8 @@ export default function Validators() {
     activeTest === 'variance'  ? varianceResult :
     activeTest === 'chiSquare'  ? chiSquareResult :
     activeTest === 'kolmogorov' ? ksResult :
-    activeTest === 'poker'      ? pokerResult : null;
+    activeTest === 'poker'      ? pokerResult :
+    activeTest === 'runs'       ? runsResult : null;
   const hasPassed = activeResult?.passed;
 
   // ── Sin datos y sin historial ────────────────────────────────
@@ -613,6 +651,17 @@ export default function Validators() {
                 <InlineMath math={`L_I \\leq S^2 \\leq L_S`} />
                 <p className="text-[10px] font-mono text-slate-400 mt-1">
                   χ²({alpha === '0.05' ? '0.025' : alpha === '0.01' ? '0.005' : '0.05'}, {displayNumbers.length - 1}) · n = {displayNumbers.length}
+                </p>
+              </div>
+            )}
+
+            {/* Criterio de aceptación — Corridas */}
+            {activeTest === 'runs' && (
+              <div className="bg-slate-50 border border-slate-200 p-3 text-center space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Criterio</p>
+                <InlineMath math={`Z = \\frac{|R - E(R)|}{\\sqrt{V(R)}} \\leq Z_{\\alpha/2}`} />
+                <p className="text-[10px] font-mono text-slate-400 mt-1">
+                  Z_α/2 = {Z_LABEL[alpha] ?? '?'} · n = {displayNumbers.length} · corridas = {displayNumbers.length - 1} signos
                 </p>
               </div>
             )}
@@ -974,6 +1023,92 @@ export default function Validators() {
                   </>
                 )}
 
+                {/* ─ Reporte de Corridas ─ */}
+                {activeTest === 'runs' && runsResult && (
+                  <>
+                    {/* Parámetros */}
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      <StatCard label="n"          value={runsResult.n.toString()} />
+                      <StatCard label="α"          value={runsResult.alpha.toFixed(2)} />
+                      <StatCard label="Corridas R" value={runsResult.totalRuns.toString()} />
+                      <StatCard label="E(R)"       value={runsResult.expectedRuns.toFixed(7)} />
+                      <StatCard label="V(R)"       value={runsResult.varianceRuns.toFixed(7)} />
+                      <StatCard label="Z crítico"  value={runsResult.zCritical.toFixed(3)} />
+                    </div>
+
+                    {/* Estadístico */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatCard
+                        label="Z calculado"
+                        value={runsResult.zCalc.toFixed(7)}
+                        highlight={runsResult.passed ? 'green' : 'red'}
+                      />
+                      <StatCard label="Z tabla (α/2)" value={runsResult.zCritical.toFixed(3)} />
+                    </div>
+
+                    {/* Visualización de signos */}
+                    <div className="border border-slate-200 p-3 bg-slate-50">
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                        Secuencia de signos — {runsResult.signs.length} comparaciones · {runsResult.totalRuns} corridas
+                      </p>
+                      <div className="flex flex-wrap gap-0.5">
+                        {(() => {
+                          let runId = 1;
+                          return runsResult.signs.map((s, idx) => {
+                            const changed = idx > 0 && runsResult.signs[idx - 1] !== s;
+                            if (changed) runId++;
+                            const color = runId % 2 === 0 ? '#4f46e5' : '#0891b2';
+                            return (
+                              <span key={idx} title={`i=${idx + 1} → ${s === 1 ? 'sube' : 'baja'} (corrida ${runId})`}
+                                className="w-6 h-6 inline-flex items-center justify-center font-mono font-black text-[10px] border border-white"
+                                style={{ backgroundColor: color, color: '#fff' }}>
+                                {s === 1 ? '↑' : '↓'}
+                              </span>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Tabla compacta */}
+                    <div className="overflow-auto max-h-52 border border-slate-200">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-900 text-white">
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right text-white/60">i</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Rᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-center">S (signo)</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Corrida</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {runsResult.rows.map((row, idx) => (
+                            <tr key={row.i} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}`}>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-400">{row.i}</td>
+                              <td className="px-3 py-1.5 text-right font-mono font-bold text-accent">{row.ri.toFixed(4)}</td>
+                              <td className="px-3 py-1.5 text-center font-mono font-black text-slate-700">
+                                {row.sign === null ? '—' : row.sign === 1 ? '1 ↑' : '0 ↓'}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-500">
+                                {row.run ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`p-4 border text-sm font-semibold leading-relaxed ${
+                      runsResult.passed ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      {runsResult.passed
+                        ? `La secuencia aprueba la Prueba de Corridas con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} es menor o igual al valor crítico Z_α/2 = ${runsResult.zCritical}, por lo tanto los números son independientes.`
+                        : `La secuencia no aprueba la Prueba de Corridas con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} supera el valor crítico Z_α/2 = ${runsResult.zCritical}.`
+                      }
+                    </div>
+                  </>
+                )}
+
               </div>
             )}
           </div>
@@ -1016,7 +1151,7 @@ export default function Validators() {
           <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov', poker: 'Prueba de Póker' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
+              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov', poker: 'Prueba de Póker', runs: 'Prueba de Corridas' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
             </span>
           </div>
 
@@ -1091,6 +1226,18 @@ export default function Validators() {
                     <LegendRow items={[
                       { color: '#4f46e5', label: 'Oᵢ observada' },
                       { color: '#0891b2', dashed: true, label: 'Eᵢ esperada' },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'runs' && runsResult && (
+                  <>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                      Secuencia de signos — ↑ sube (1) · ↓ baja (0) · colores por corrida
+                    </p>
+                    <RunsChart result={runsResult} />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Corridas impares' },
+                      { color: '#0891b2', label: 'Corridas pares' },
                     ]} />
                   </>
                 )}
@@ -1175,6 +1322,21 @@ export default function Validators() {
                     <LegendRow items={[
                       { color: '#4f46e5', label: 'Rᵢ' },
                       { color: pokerResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'runs' && runsResult && (
+                  <>
+                    <SequenceChart
+                      numbers={displayNumbers}
+                      lowerLimit={0}
+                      upperLimit={1}
+                      mean={riValues.reduce((s, r) => s + r, 0) / riValues.length}
+                      meanColor={runsResult.passed ? '#16a34a' : '#dc2626'}
+                    />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Rᵢ' },
+                      { color: runsResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
                     ]} />
                   </>
                 )}
