@@ -33,7 +33,7 @@ export default function Footer() {
                 Ing. Juan Carlos Govea Magaña
               </p>
               <p className="text-slate-500 text-xs mt-1">
-                Ing. en Sistemas Computacionales • TecNM
+                Ingienería en Sistemas Computacionales • TecNM
               </p>
             </div>
           </div>

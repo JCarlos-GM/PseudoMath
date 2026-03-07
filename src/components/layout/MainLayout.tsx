@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Dna, CheckSquare, BookOpen, Sigma, AppWindow } from 'lucide-react';
+import { LayoutDashboard, Dna, CheckSquare, BookOpen, Sigma, AppWindow, Menu, X } from 'lucide-react';
 import Footer from './Footer';
 
 export default function MainLayout() {
-  // Enlaces de navegacion principal
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const navItems = [
     { path: '/', name: 'Inicio', icon: LayoutDashboard },
     { path: '/generadores', name: 'Generador', icon: Dna },
@@ -63,8 +65,40 @@ export default function MainLayout() {
               </div>
             </div>
 
+            {/* Botón hamburguesa — solo móvil */}
+            <button
+              className="md:hidden flex items-center justify-center w-9 h-9 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Menú"
+            >
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+
           </div>
         </div>
+
+        {/* Menú desplegable móvil */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-slate-200 bg-white">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-6 py-3 text-sm font-bold uppercase tracking-wider border-l-4 transition-colors ${
+                    isActive
+                      ? 'border-accent text-accent bg-accent-muted'
+                      : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`
+                }
+              >
+                <item.icon size={16} strokeWidth={2} />
+                {item.name}
+              </NavLink>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* Contenedor del Area de Trabajo (Main) */}
