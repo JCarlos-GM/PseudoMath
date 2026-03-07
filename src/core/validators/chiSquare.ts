@@ -25,14 +25,7 @@ export interface ChiSquareGoFResult {
 
 /**
  * Prueba Chi-Cuadrada de Bondad de Ajuste (uniformidad).
- * Criterio: χ²_c ≤ χ²_{α, M−1}
- *
- * Replica exactamente el procedimiento de Excel:
- *  • M = √N  (flotante exacto, igual que Excel)
- *  • Rango = 1 / M
- *  • Eᵢ = N / M  (mismo para todos los intervalos)
- *  • df = Math.floor(M) − 1
- *  • Valor tabla = CHISQ.INV(1−α, df)  ↔  chiSquareInv(1−α, df)
+ * M = √N como flotante, df = floor(M) − 1. Criterio: χ²_c ≤ χ²_{α, df}
  */
 export function testChiSquare(ri: number[], alpha: number): ChiSquareGoFResult {
   const n      = ri.length;
@@ -46,7 +39,6 @@ export function testChiSquare(ri: number[], alpha: number): ChiSquareGoFResult {
   const bins: ChiSquareBin[] = [];
   for (let i = 0; i < mInt; i++) {
     const lower = i * rango;
-    // El último intervalo incluye el extremo superior 1 (por punto flotante)
     const upper = i === mInt - 1 ? 1 : (i + 1) * rango;
 
     const observed = ri.filter(r => r >= lower && r < upper).length;
@@ -55,9 +47,7 @@ export function testChiSquare(ri: number[], alpha: number): ChiSquareGoFResult {
     bins.push({ index: i + 1, lower, upper, observed, expected, contribution });
   }
 
-  // Asegurarse de que cualquier Ri = 1.0 exacto quede en el último bin
-  // (el filter con r < upper del último bin excluiría 1.0, pero upper = 1 allí,
-  //  así que r < 1 fallaría — lo corregimos con >= lower && <= 1 en el último bin)
+  // Valores exactamente 1.0 quedan en el último bin con r <= 1
   if (mInt > 0) {
     const lastBin = bins[mInt - 1];
     const lastCount = ri.filter(r => r >= lastBin.lower && r <= 1).length;

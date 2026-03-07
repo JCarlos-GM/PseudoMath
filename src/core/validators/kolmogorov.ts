@@ -1,6 +1,4 @@
-// ── Tabla de valores críticos de Kolmogorov-Smirnov ──────────
-// Fuente: Massey (1951) / tablas estándar de simulación
-// Filas = n (1..35), Columnas = α ∈ {0.20, 0.10, 0.05, 0.02, 0.01}
+// Valores críticos KS — Massey (1951), n = 1..35, α ∈ {0.20, 0.10, 0.05, 0.02, 0.01}
 
 const KS_TABLE: Record<number, Record<string, number>> = {
    1: { '0.20': 0.900, '0.10': 0.950, '0.05': 0.975, '0.02': 0.990, '0.01': 0.995 },
@@ -40,7 +38,7 @@ const KS_TABLE: Record<number, Record<string, number>> = {
   35: { '0.20': 0.177, '0.10': 0.202, '0.05': 0.224, '0.02': 0.251, '0.01': 0.272 },
 };
 
-// Factores de aproximación para n > 35: D_crit = factor / √n
+// Para n > 35: D_crit = factor / √n
 const KS_APPROX_FACTOR: Record<string, number> = {
   '0.20': 1.073,
   '0.10': 1.224,
@@ -49,10 +47,7 @@ const KS_APPROX_FACTOR: Record<string, number> = {
   '0.01': 1.628,
 };
 
-/**
- * Obtiene el valor crítico D_{α,n} de la distribución KS.
- * Usa la tabla exacta para n ≤ 35 y la aproximación para n > 35.
- */
+/** Valor crítico D_{α,n}: tabla exacta para n ≤ 35, aproximación para n > 35. */
 function ksCritical(n: number, alpha: number): number {
   const key = alpha.toFixed(2);
   if (n <= 35 && KS_TABLE[n]) {
@@ -88,15 +83,11 @@ export interface KSResult {
 
 /**
  * Prueba de Kolmogorov-Smirnov para uniformidad.
- * Criterio de aceptación: D = max(D+MAX, D−MAX) ≤ D_{crítico}
- *
- * @param ri    arreglo de Rᵢ en cualquier orden
- * @param alpha nivel de significancia (0.20 | 0.10 | 0.05 | 0.02 | 0.01)
+ * Criterio: D = max(D+MAX, D−MAX) ≤ D_{crítico}
  */
 export function testKolmogorov(ri: number[], alpha: number): KSResult {
   const n = ri.length;
 
-  // Paso 0: ordenar ascendentemente
   const sorted = [...ri].sort((a, b) => a - b);
 
   const rows: KSRow[] = sorted.map((r, idx) => {

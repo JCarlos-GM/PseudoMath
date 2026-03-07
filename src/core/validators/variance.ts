@@ -1,6 +1,4 @@
-// ── Funciones matemáticas auxiliares ─────────────────────────
-
-/** Aproximación de Lanczos para log-gamma (Numerical Recipes) */
+/** Aproximación de Lanczos para log-gamma */
 function logGamma(x: number): number {
   const c = [
     76.18009172947146, -86.50532032941677, 24.01409824083091,
@@ -57,16 +55,11 @@ function chiSquareCDF(x: number, df: number): number {
   return gammaInc(df / 2, x / 2);
 }
 
-/**
- * Cuantil de la distribución normal estándar.
- * Algoritmo de Peter Acklam (2003) — error máximo ≈ 1.15×10⁻⁹
- * Equivale a NORM.S.INV de Excel.
- */
+/** Cuantil de la distribución normal estándar (Acklam 2003). Equivale a NORM.S.INV. */
 function normalQuantile(p: number): number {
   if (p <= 0) return -Infinity;
   if (p >= 1) return  Infinity;
 
-  // Coeficientes para la región central y las colas
   const a = [
     -3.969683028665376e+01,  2.209460984245205e+02,
     -2.759285104469687e+02,  1.383577518672690e+02,
@@ -90,42 +83,30 @@ function normalQuantile(p: number): number {
   const pLow = 0.02425;
 
   if (p < pLow) {
-    // Cola inferior
     const q = Math.sqrt(-2 * Math.log(p));
     return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
            ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
   }
   if (p > 1 - pLow) {
-    // Cola superior
     const q = Math.sqrt(-2 * Math.log(1 - p));
     return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
               ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
   }
-  // Región central
   const q = p - 0.5;
   const r = q * q;
   return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q /
          (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
 }
 
-/**
- * Inversa de la CDF chi-cuadrada.
- * Estimación inicial Wilson-Hilferty + Newton-Raphson.
- * Coincide con CHISQ.INV(p, df) de Excel.
- *
- * p   = probabilidad acumulada en la cola izquierda
- * df  = grados de libertad
- */
+/** Inversa de la CDF chi-cuadrada. Coincide con CHISQ.INV(p, df) de Excel. */
 export function chiSquareInv(p: number, df: number): number {
   if (p <= 0) return 0;
   if (p >= 1) return Infinity;
 
-  // Estimación inicial: Wilson-Hilferty
   const z = normalQuantile(p);
   const h = 2 / (9 * df);
   let x = Math.max(1e-4, df * Math.pow(Math.max(1e-10, 1 - h + z * Math.sqrt(h)), 3));
 
-  // Refinamiento Newton-Raphson (converge en < 10 iteraciones desde WH)
   for (let i = 0; i < 60; i++) {
     if (!isFinite(x) || x <= 0) { x = df; continue; }
     const fx  = chiSquareCDF(x, df) - p;
@@ -137,8 +118,6 @@ export function chiSquareInv(p: number, df: number): number {
   }
   return x;
 }
-
-// ── Prueba de Varianza ────────────────────────────────────────
 
 export interface VarianceResult {
   passed: boolean;
@@ -163,18 +142,14 @@ export function testVariance(ri: number[], alpha: number): VarianceResult {
   const df   = n - 1;
   const mean = ri.reduce((s, r) => s + r, 0) / n;
 
-  // VAR.S de Excel: divide entre N−1 (corrección de Bessel)
   const sampleVariance = ri.reduce((s, r) => s + (r - mean) ** 2, 0) / df;
-
-  // Estadístico de prueba en escala chi-cuadrada: T = 12·(N−1)·S²
   const testStatistic = 12 * df * sampleVariance;
 
-  // Valores críticos — CHISQ.INV(p, df) de Excel (cola izquierda)
-  const chiSqLower = chiSquareInv(alpha / 2,       df); // "Coe sup" ≈ 29.16
-  const chiSqUpper = chiSquareInv(1 - alpha / 2,   df); // "Coe inf" ≈ 66.62
+  const chiSqLower = chiSquareInv(alpha / 2,     df);
+  const chiSqUpper = chiSquareInv(1 - alpha / 2, df);
 
-  const lowerLimit = chiSqLower / (12 * df); // LS (INF) ≈ 0.05283
-  const upperLimit = chiSqUpper / (12 * df); // LI (SUP) ≈ 0.12068
+  const lowerLimit = chiSqLower / (12 * df);
+  const upperLimit = chiSqUpper / (12 * df);
 
   return {
     passed: sampleVariance >= lowerLimit && sampleVariance <= upperLimit,
