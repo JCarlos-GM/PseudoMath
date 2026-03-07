@@ -29,7 +29,7 @@ const VALIDATION_TESTS = [
   { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: true  },
   { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: true  },
   { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: true  },
-  { id: 'runs',       name: 'Prueba de Corridas',         icon: Activity,   ready: true  },
+  { id: 'runs',       name: 'Arriba y Abajo',         icon: Activity,   ready: true  },
 ];
 const METHOD_BADGE: Record<string, string> = {
   midSquares:     'bg-accent text-white',
@@ -1102,8 +1102,8 @@ export default function Validators() {
                       runsResult.passed ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
                     }`}>
                       {runsResult.passed
-                        ? `La secuencia aprueba la Prueba de Corridas con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} es menor o igual al valor crítico Z_α/2 = ${runsResult.zCritical}, por lo tanto los números son independientes.`
-                        : `La secuencia no aprueba la Prueba de Corridas con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} supera el valor crítico Z_α/2 = ${runsResult.zCritical}.`
+                        ? `La secuencia aprueba la Arriba y Abajo con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} es menor o igual al valor crítico Z_α/2 = ${runsResult.zCritical}, por lo tanto los números son independientes.`
+                        : `La secuencia no aprueba la Arriba y Abajo con α = ${runsResult.alpha}. El estadístico Z = ${runsResult.zCalc.toFixed(4)} supera el valor crítico Z_α/2 = ${runsResult.zCritical}.`
                       }
                     </div>
                   </>
@@ -1151,7 +1151,7 @@ export default function Validators() {
           <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov', poker: 'Prueba de Póker', runs: 'Prueba de Corridas' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
+              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov', poker: 'Prueba de Póker', runs: 'Arriba y Abajo' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
             </span>
           </div>
 

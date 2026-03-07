@@ -26,7 +26,7 @@ export interface RunsResult {
 }
 
 /**
- * Prueba de Corridas para independencia.
+ * Arriba y Abajo para independencia.
  * Genera N-1 signos (Excel genera N por error). Criterio: Z_calc ≤ Z_crítico
  * E(R) = (2N-1)/3 · V(R) = (16N-29)/90 · Z = |R-E(R)|/√V(R)
  */
