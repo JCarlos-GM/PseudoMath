@@ -1,0 +1,128 @@
+// ── Tabla de valores críticos de Kolmogorov-Smirnov ──────────
+// Fuente: Massey (1951) / tablas estándar de simulación
+// Filas = n (1..35), Columnas = α ∈ {0.20, 0.10, 0.05, 0.02, 0.01}
+
+const KS_TABLE: Record<number, Record<string, number>> = {
+   1: { '0.20': 0.900, '0.10': 0.950, '0.05': 0.975, '0.02': 0.990, '0.01': 0.995 },
+   2: { '0.20': 0.684, '0.10': 0.776, '0.05': 0.842, '0.02': 0.900, '0.01': 0.929 },
+   3: { '0.20': 0.565, '0.10': 0.636, '0.05': 0.708, '0.02': 0.785, '0.01': 0.829 },
+   4: { '0.20': 0.493, '0.10': 0.565, '0.05': 0.624, '0.02': 0.689, '0.01': 0.734 },
+   5: { '0.20': 0.447, '0.10': 0.509, '0.05': 0.563, '0.02': 0.627, '0.01': 0.669 },
+   6: { '0.20': 0.410, '0.10': 0.468, '0.05': 0.519, '0.02': 0.577, '0.01': 0.617 },
+   7: { '0.20': 0.381, '0.10': 0.436, '0.05': 0.483, '0.02': 0.538, '0.01': 0.576 },
+   8: { '0.20': 0.358, '0.10': 0.410, '0.05': 0.454, '0.02': 0.507, '0.01': 0.542 },
+   9: { '0.20': 0.339, '0.10': 0.387, '0.05': 0.430, '0.02': 0.480, '0.01': 0.513 },
+  10: { '0.20': 0.322, '0.10': 0.369, '0.05': 0.409, '0.02': 0.457, '0.01': 0.489 },
+  11: { '0.20': 0.307, '0.10': 0.352, '0.05': 0.391, '0.02': 0.437, '0.01': 0.468 },
+  12: { '0.20': 0.295, '0.10': 0.338, '0.05': 0.375, '0.02': 0.419, '0.01': 0.449 },
+  13: { '0.20': 0.284, '0.10': 0.325, '0.05': 0.361, '0.02': 0.404, '0.01': 0.432 },
+  14: { '0.20': 0.274, '0.10': 0.314, '0.05': 0.349, '0.02': 0.390, '0.01': 0.418 },
+  15: { '0.20': 0.266, '0.10': 0.304, '0.05': 0.338, '0.02': 0.377, '0.01': 0.404 },
+  16: { '0.20': 0.258, '0.10': 0.295, '0.05': 0.328, '0.02': 0.366, '0.01': 0.392 },
+  17: { '0.20': 0.250, '0.10': 0.286, '0.05': 0.318, '0.02': 0.355, '0.01': 0.381 },
+  18: { '0.20': 0.244, '0.10': 0.279, '0.05': 0.309, '0.02': 0.346, '0.01': 0.371 },
+  19: { '0.20': 0.237, '0.10': 0.271, '0.05': 0.301, '0.02': 0.337, '0.01': 0.363 },
+  20: { '0.20': 0.232, '0.10': 0.265, '0.05': 0.294, '0.02': 0.329, '0.01': 0.356 },
+  21: { '0.20': 0.226, '0.10': 0.259, '0.05': 0.287, '0.02': 0.321, '0.01': 0.347 },
+  22: { '0.20': 0.221, '0.10': 0.253, '0.05': 0.281, '0.02': 0.314, '0.01': 0.340 },
+  23: { '0.20': 0.216, '0.10': 0.247, '0.05': 0.275, '0.02': 0.307, '0.01': 0.333 },
+  24: { '0.20': 0.212, '0.10': 0.242, '0.05': 0.269, '0.02': 0.301, '0.01': 0.327 },
+  25: { '0.20': 0.208, '0.10': 0.238, '0.05': 0.264, '0.02': 0.295, '0.01': 0.320 },
+  26: { '0.20': 0.204, '0.10': 0.233, '0.05': 0.259, '0.02': 0.290, '0.01': 0.314 },
+  27: { '0.20': 0.200, '0.10': 0.229, '0.05': 0.254, '0.02': 0.284, '0.01': 0.308 },
+  28: { '0.20': 0.197, '0.10': 0.225, '0.05': 0.250, '0.02': 0.279, '0.01': 0.303 },
+  29: { '0.20': 0.193, '0.10': 0.221, '0.05': 0.246, '0.02': 0.275, '0.01': 0.298 },
+  30: { '0.20': 0.190, '0.10': 0.218, '0.05': 0.242, '0.02': 0.270, '0.01': 0.293 },
+  31: { '0.20': 0.187, '0.10': 0.214, '0.05': 0.238, '0.02': 0.266, '0.01': 0.288 },
+  32: { '0.20': 0.184, '0.10': 0.211, '0.05': 0.234, '0.02': 0.262, '0.01': 0.284 },
+  33: { '0.20': 0.182, '0.10': 0.208, '0.05': 0.231, '0.02': 0.258, '0.01': 0.280 },
+  34: { '0.20': 0.179, '0.10': 0.205, '0.05': 0.227, '0.02': 0.254, '0.01': 0.276 },
+  35: { '0.20': 0.177, '0.10': 0.202, '0.05': 0.224, '0.02': 0.251, '0.01': 0.272 },
+};
+
+// Factores de aproximación para n > 35: D_crit = factor / √n
+const KS_APPROX_FACTOR: Record<string, number> = {
+  '0.20': 1.073,
+  '0.10': 1.224,
+  '0.05': 1.358,
+  '0.02': 1.517,
+  '0.01': 1.628,
+};
+
+/**
+ * Obtiene el valor crítico D_{α,n} de la distribución KS.
+ * Usa la tabla exacta para n ≤ 35 y la aproximación para n > 35.
+ */
+function ksCritical(n: number, alpha: number): number {
+  const key = alpha.toFixed(2);
+  if (n <= 35 && KS_TABLE[n]) {
+    return KS_TABLE[n][key] ?? 1.358 / Math.sqrt(n);
+  }
+  const factor = KS_APPROX_FACTOR[key] ?? 1.358;
+  return factor / Math.sqrt(n);
+}
+
+// ── Interfaces ────────────────────────────────────────────────
+
+export interface KSRow {
+  i:       number; // índice 1-based
+  ri:      number; // valor Rᵢ ordenado
+  iOverN:  number; // i/n   (límite superior teórico)
+  im1OverN: number; // (i-1)/n (límite inferior teórico)
+  dPlus:   number; // D+ᵢ = i/n − rᵢ
+  dMinus:  number; // D−ᵢ = rᵢ − (i−1)/n
+}
+
+export interface KSResult {
+  passed:       boolean;
+  n:            number;
+  alpha:        number;
+  confidence:   number; // 1 − α
+  dCritical:    number; // D_{α,n}
+  rows:         KSRow[];
+  dPlusMax:     number; // max(D+)
+  dMinusMax:    number; // max(D−)
+  dMaxMax:      number; // D = max(D+MAX, D−MAX) — estadístico KS
+  usedApprox:   boolean; // true si n > 35 (se usó fórmula)
+}
+
+/**
+ * Prueba de Kolmogorov-Smirnov para uniformidad.
+ * Criterio de aceptación: D = max(D+MAX, D−MAX) ≤ D_{crítico}
+ *
+ * @param ri    arreglo de Rᵢ en cualquier orden
+ * @param alpha nivel de significancia (0.20 | 0.10 | 0.05 | 0.02 | 0.01)
+ */
+export function testKolmogorov(ri: number[], alpha: number): KSResult {
+  const n = ri.length;
+
+  // Paso 0: ordenar ascendentemente
+  const sorted = [...ri].sort((a, b) => a - b);
+
+  const rows: KSRow[] = sorted.map((r, idx) => {
+    const i        = idx + 1;
+    const iOverN   = i / n;
+    const im1OverN = (i - 1) / n;
+    const dPlus    = iOverN   - r;
+    const dMinus   = r - im1OverN;
+    return { i, ri: r, iOverN, im1OverN, dPlus, dMinus };
+  });
+
+  const dPlusMax  = Math.max(...rows.map(r => r.dPlus));
+  const dMinusMax = Math.max(...rows.map(r => r.dMinus));
+  const dMaxMax   = Math.max(dPlusMax, dMinusMax);
+  const dCritical = ksCritical(n, alpha);
+
+  return {
+    passed:     dMaxMax <= dCritical,
+    n,
+    alpha,
+    confidence: 1 - alpha,
+    dCritical,
+    rows,
+    dPlusMax,
+    dMinusMax,
+    dMaxMax,
+    usedApprox: n > 35,
+  };
+}

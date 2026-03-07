@@ -64,7 +64,7 @@ const SUITE = [
     category: 'Métodos Numéricos',
     description: 'Resolución de sistemas de ecuaciones lineales mediante algoritmos iterativos Jacobi y Gauss-Seidel con análisis de convergencia.',
     icon: Grid3X3,
-    url: '#',
+    url: 'https://flux-solver.vercel.app/',
     status: 'Estable',
     isInternal: false,
   },

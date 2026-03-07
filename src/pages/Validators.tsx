@@ -17,6 +17,7 @@ import { generateMonteCarlo }    from '../core/generators/monteCarlo';
 import { testMeans,    type MeansResult    } from '../core/validators/means';
 import { testVariance, type VarianceResult, chiSquarePDF } from '../core/validators/variance';
 import { testChiSquare, type ChiSquareGoFResult } from '../core/validators/chiSquare';
+import { testKolmogorov, type KSResult } from '../core/validators/kolmogorov';
 import type { HistoryEntry, GeneratedNumber } from '../types/simulation';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -24,7 +25,7 @@ const VALIDATION_TESTS = [
   { id: 'means',      name: 'Prueba de Medias',           icon: Percent,    ready: true  },
   { id: 'variance',   name: 'Prueba de Varianza',         icon: BarChart,   ready: true  },
   { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: true  },
-  { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: false },
+  { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: true  },
   { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: false },
 ];
 const METHOD_BADGE: Record<string, string> = {
@@ -268,6 +269,70 @@ function StatCard({ label, value, highlight }: {
   );
 }
 
+// ── KS Empirical CDF vs Uniform CDF ───────────────────────────
+function KSChart({ result }: { result: KSResult }) {
+  const passed = result.passed;
+  const dColor = passed ? '#16a34a' : '#dc2626';
+
+  // Construimos la CDF empírica como función escalera:
+  // Para cada rᵢ tenemos el punto (rᵢ, i/n).
+  // Agregamos (0,0) al inicio y (1,1) al final.
+  const data = useMemo(() => {
+    const pts: { x: number; ecdf: number; uniform: number }[] = [
+      { x: 0, ecdf: 0, uniform: 0 },
+    ];
+    result.rows.forEach((row) => {
+      // Punto justo antes del salto (altura anterior)
+      pts.push({ x: row.ri, ecdf: (row.i - 1) / result.n, uniform: row.ri });
+      // Punto del salto (altura nueva)
+      pts.push({ x: row.ri, ecdf: row.i / result.n, uniform: row.ri });
+    });
+    pts.push({ x: 1, ecdf: 1, uniform: 1 });
+    return pts;
+  }, [result]);
+
+  // Fila donde ocurre la máxima desviación
+  const maxRow = result.rows.find(
+    (r) => Math.abs(r.dPlus  - result.dPlusMax)  < 1e-10 ||
+            Math.abs(r.dMinus - result.dMinusMax) < 1e-10,
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" />
+        <XAxis dataKey="x" type="number" domain={[0, 1]} tickCount={6}
+          tickFormatter={(v) => (+v).toFixed(2)}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+        <YAxis domain={[0, 1]} tickCount={6}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={false} tickLine={false} width={32} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: any, name: any) => [
+            typeof v === 'number' ? v.toFixed(5) : v,
+            name === 'ecdf' ? 'F empírica' : 'F teórica (U[0,1])',
+          ]}
+          labelFormatter={(x) => `r = ${(+x).toFixed(5)}`}
+          cursor={{ stroke: '#c7d2fe', strokeWidth: 1 }}
+        />
+        {/* Línea de la CDF teórica uniforme (diagonal) */}
+        <Line type="linear" dataKey="uniform" stroke="#94a3b8" strokeWidth={1.5}
+          strokeDasharray="6 3" dot={false} />
+        {/* Escalera empírica */}
+        <Line type="stepAfter" dataKey="ecdf" stroke="#4f46e5" strokeWidth={2}
+          dot={false} animationDuration={700} />
+        {/* Línea vertical en la máxima desviación */}
+        {maxRow && (
+          <ReferenceLine x={maxRow.ri} stroke={dColor} strokeDasharray="4 3" strokeWidth={1.5}
+            label={{ value: `D=${result.dMaxMax.toFixed(4)}`, position: 'insideTopRight', fontSize: 9, fill: dColor, fontWeight: 700 }} />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 // ── Chi-Square GoF Frequency Chart ────────────────────────────
 function ChiSquareFreqChart({ result }: { result: ChiSquareGoFResult }) {
   const data = useMemo(
@@ -315,11 +380,12 @@ export default function Validators() {
   const [meansResult, setMeansResult]           = useState<MeansResult       | null>(null);
   const [varianceResult, setVarianceResult]     = useState<VarianceResult    | null>(null);
   const [chiSquareResult, setChiSquareResult]   = useState<ChiSquareGoFResult| null>(null);
+  const [ksResult, setKsResult]                 = useState<KSResult          | null>(null);
 
   const displayNumbers = generatedNumbers.filter(n => !(n as any).isSeedRow);
   const riValues       = displayNumbers.map(n => n.value);
 
-  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); };
+  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); setKsResult(null); };
 
   const switchTest = (id: string) => { setActiveTest(id); clearResults(); };
 
@@ -339,14 +405,16 @@ export default function Validators() {
     const a = parseFloat(alpha);
     if (activeTest === 'means')     setMeansResult(testMeans(riValues, a));
     if (activeTest === 'variance')  setVarianceResult(testVariance(riValues, a));
-    if (activeTest === 'chiSquare') setChiSquareResult(testChiSquare(riValues, a));
+    if (activeTest === 'chiSquare')  setChiSquareResult(testChiSquare(riValues, a));
+    if (activeTest === 'kolmogorov') setKsResult(testKolmogorov(riValues, a));
   };
 
   // Resultado activo
   const activeResult =
     activeTest === 'means'     ? meansResult :
     activeTest === 'variance'  ? varianceResult :
-    activeTest === 'chiSquare' ? chiSquareResult : null;
+    activeTest === 'chiSquare'  ? chiSquareResult :
+    activeTest === 'kolmogorov' ? ksResult : null;
   const hasPassed = activeResult?.passed;
 
   // ── Sin datos y sin historial ────────────────────────────────
@@ -503,6 +571,17 @@ export default function Validators() {
                 <InlineMath math={`L_I \\leq S^2 \\leq L_S`} />
                 <p className="text-[10px] font-mono text-slate-400 mt-1">
                   χ²({alpha === '0.05' ? '0.025' : alpha === '0.01' ? '0.005' : '0.05'}, {displayNumbers.length - 1}) · n = {displayNumbers.length}
+                </p>
+              </div>
+            )}
+
+            {/* Criterio de aceptación — Kolmogorov-Smirnov */}
+            {activeTest === 'kolmogorov' && (
+              <div className="bg-slate-50 border border-slate-200 p-3 text-center space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Criterio</p>
+                <InlineMath math={`D \\leq D_{\\alpha,\\,n}`} />
+                <p className="text-[10px] font-mono text-slate-400 mt-1">
+                  D = max(D⁺MAX, D⁻MAX) · n = {displayNumbers.length}
                 </p>
               </div>
             )}
@@ -692,6 +771,79 @@ export default function Validators() {
                   </>
                 )}
 
+                {/* ─ Reporte de Kolmogorov-Smirnov ─ */}
+                {activeTest === 'kolmogorov' && ksResult && (
+                  <>
+                    {/* Parámetros */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <StatCard label="N"              value={ksResult.n.toString()} />
+                      <StatCard label="α"              value={ksResult.alpha.toFixed(2)} />
+                      <StatCard label="Confianza"      value={`${(ksResult.confidence * 100).toFixed(0)}%`} />
+                      <StatCard label="D crítico"      value={ksResult.dCritical.toFixed(7)} />
+                    </div>
+
+                    {/* Máximos y estadístico */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <StatCard label="D⁺MAX" value={ksResult.dPlusMax.toFixed(7)} />
+                      <StatCard label="D⁻MAX" value={ksResult.dMinusMax.toFixed(7)} />
+                      <StatCard
+                        label="DMAXMAX (D)"
+                        value={ksResult.dMaxMax.toFixed(7)}
+                        highlight={ksResult.passed ? 'green' : 'red'}
+                      />
+                    </div>
+
+                    {ksResult.usedApprox && (
+                      <p className="text-[10px] font-mono text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2">
+                        n &gt; 35: D crítico calculado con fórmula de aproximación (1.358 / √n para α = 0.05)
+                      </p>
+                    )}
+
+                    {/* Tabla de iteraciones */}
+                    <div className="overflow-auto max-h-52 border border-slate-200">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-900 text-white">
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-white/60 text-right">i</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">rᵢ (ord.)</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">i/n</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">(i−1)/n</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">D⁺ᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">D⁻ᵢ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ksResult.rows.map((row, idx) => {
+                            const isMaxD = Math.abs(row.dPlus - ksResult.dPlusMax) < 1e-10 ||
+                                           Math.abs(row.dMinus - ksResult.dMinusMax) < 1e-10;
+                            return (
+                              <tr key={row.i} className={`border-b border-slate-100 ${
+                                isMaxD ? 'bg-amber-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
+                              }`}>
+                                <td className="px-3 py-1.5 text-right font-mono text-slate-400">{row.i}</td>
+                                <td className="px-3 py-1.5 text-right font-mono font-bold text-accent">{row.ri.toFixed(7)}</td>
+                                <td className="px-3 py-1.5 text-right font-mono text-slate-500">{row.iOverN.toFixed(4)}</td>
+                                <td className="px-3 py-1.5 text-right font-mono text-slate-500">{row.im1OverN.toFixed(4)}</td>
+                                <td className="px-3 py-1.5 text-right font-mono text-slate-700">{row.dPlus.toFixed(7)}</td>
+                                <td className="px-3 py-1.5 text-right font-mono text-slate-700">{row.dMinus.toFixed(7)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`p-4 border text-sm font-semibold leading-relaxed ${
+                      ksResult.passed ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      {ksResult.passed
+                        ? `La secuencia aprueba la Prueba K-S con α = ${ksResult.alpha}. Como D crítico (${ksResult.dCritical.toFixed(4)}) es mayor o igual a DMAXMAX (${ksResult.dMaxMax.toFixed(4)}), los números son uniformes.`
+                        : `La secuencia no aprueba la Prueba K-S con α = ${ksResult.alpha}. DMAXMAX (${ksResult.dMaxMax.toFixed(4)}) supera el D crítico (${ksResult.dCritical.toFixed(4)}), indicando que la distribución no es uniforme.`
+                      }
+                    </div>
+                  </>
+                )}
+
               </div>
             )}
           </div>
@@ -734,7 +886,7 @@ export default function Validators() {
           <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {activeTest === 'means' ? 'Prueba de Medias' : activeTest === 'variance' ? 'Prueba de Varianza' : 'Prueba Chi-Cuadrada'} · n = {displayNumbers.length} · α = {alpha}
+              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
             </span>
           </div>
 
@@ -784,6 +936,19 @@ export default function Validators() {
                     <LegendRow items={[
                       { color: '#4f46e5', label: 'Oᵢ observada' },
                       { color: '#0891b2', dashed: true, label: `Eᵢ = ${chiSquareResult.expected.toFixed(2)} esperada` },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'kolmogorov' && ksResult && (
+                  <>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                      CDF empírica vs CDF teórica <InlineMath math="U[0,1]" />
+                    </p>
+                    <KSChart result={ksResult} />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'F empírica (escalera)' },
+                      { color: '#94a3b8', dashed: true, label: 'F teórica U[0,1]' },
+                      { color: ksResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: `D = ${ksResult.dMaxMax.toFixed(4)}` },
                     ]} />
                   </>
                 )}
@@ -838,6 +1003,21 @@ export default function Validators() {
                     <LegendRow items={[
                       { color: '#4f46e5', label: 'Rᵢ' },
                       { color: chiSquareResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'kolmogorov' && ksResult && (
+                  <>
+                    <SequenceChart
+                      numbers={displayNumbers}
+                      lowerLimit={0}
+                      upperLimit={1}
+                      mean={riValues.reduce((s, r) => s + r, 0) / riValues.length}
+                      meanColor={ksResult.passed ? '#16a34a' : '#dc2626'}
+                    />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Rᵢ (sin ordenar)' },
+                      { color: ksResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
                     ]} />
                   </>
                 )}
