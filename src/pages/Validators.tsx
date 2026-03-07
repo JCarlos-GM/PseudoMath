@@ -18,6 +18,7 @@ import { testMeans,    type MeansResult    } from '../core/validators/means';
 import { testVariance, type VarianceResult, chiSquarePDF } from '../core/validators/variance';
 import { testChiSquare, type ChiSquareGoFResult } from '../core/validators/chiSquare';
 import { testKolmogorov, type KSResult } from '../core/validators/kolmogorov';
+import { testPoker, type PokerResult } from '../core/validators/poker';
 import type { HistoryEntry, GeneratedNumber } from '../types/simulation';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -26,7 +27,7 @@ const VALIDATION_TESTS = [
   { id: 'variance',   name: 'Prueba de Varianza',         icon: BarChart,   ready: true  },
   { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: true  },
   { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: true  },
-  { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: false },
+  { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: true  },
 ];
 const METHOD_BADGE: Record<string, string> = {
   midSquares:     'bg-accent text-white',
@@ -269,6 +270,44 @@ function StatCard({ label, value, highlight }: {
   );
 }
 
+// ── Poker Category Chart ──────────────────────────────────────
+function PokerChart({ result }: { result: PokerResult }) {
+  const data = useMemo(
+    () => result.rows.map((r) => ({
+      label: r.category,
+      Oi: r.observed,
+      Ei: +r.expected.toFixed(4),
+    })),
+    [result.rows],
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+        <XAxis dataKey="label"
+          tick={{ fontSize: 11, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace', fontWeight: 700 }}
+          axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+        <YAxis allowDecimals={false}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={false} tickLine={false} width={28} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: any, name: any) => [
+            typeof v === 'number' ? (name === 'Ei' ? v.toFixed(4) : v) : v,
+            name === 'Oi' ? 'Observada (Oᵢ)' : 'Esperada (Eᵢ)',
+          ]}
+          labelFormatter={(l) => `Categoría: ${l}`}
+          cursor={{ fill: '#f8fafc' }}
+        />
+        <Bar dataKey="Oi" fill="#4f46e5" fillOpacity={0.85} radius={0} maxBarSize={48} />
+        <Line type="monotone" dataKey="Ei" stroke="#0891b2" strokeWidth={2}
+          strokeDasharray="5 4" dot={{ r: 4, fill: '#0891b2', strokeWidth: 0 }} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 // ── KS Empirical CDF vs Uniform CDF ───────────────────────────
 function KSChart({ result }: { result: KSResult }) {
   const passed = result.passed;
@@ -381,11 +420,12 @@ export default function Validators() {
   const [varianceResult, setVarianceResult]     = useState<VarianceResult    | null>(null);
   const [chiSquareResult, setChiSquareResult]   = useState<ChiSquareGoFResult| null>(null);
   const [ksResult, setKsResult]                 = useState<KSResult          | null>(null);
+  const [pokerResult, setPokerResult]           = useState<PokerResult       | null>(null);
 
   const displayNumbers = generatedNumbers.filter(n => !(n as any).isSeedRow);
   const riValues       = displayNumbers.map(n => n.value);
 
-  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); setKsResult(null); };
+  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); setKsResult(null); setPokerResult(null); };
 
   const switchTest = (id: string) => { setActiveTest(id); clearResults(); };
 
@@ -407,6 +447,7 @@ export default function Validators() {
     if (activeTest === 'variance')  setVarianceResult(testVariance(riValues, a));
     if (activeTest === 'chiSquare')  setChiSquareResult(testChiSquare(riValues, a));
     if (activeTest === 'kolmogorov') setKsResult(testKolmogorov(riValues, a));
+    if (activeTest === 'poker')      setPokerResult(testPoker(riValues, a));
   };
 
   // Resultado activo
@@ -414,7 +455,8 @@ export default function Validators() {
     activeTest === 'means'     ? meansResult :
     activeTest === 'variance'  ? varianceResult :
     activeTest === 'chiSquare'  ? chiSquareResult :
-    activeTest === 'kolmogorov' ? ksResult : null;
+    activeTest === 'kolmogorov' ? ksResult :
+    activeTest === 'poker'      ? pokerResult : null;
   const hasPassed = activeResult?.passed;
 
   // ── Sin datos y sin historial ────────────────────────────────
@@ -571,6 +613,17 @@ export default function Validators() {
                 <InlineMath math={`L_I \\leq S^2 \\leq L_S`} />
                 <p className="text-[10px] font-mono text-slate-400 mt-1">
                   χ²({alpha === '0.05' ? '0.025' : alpha === '0.01' ? '0.005' : '0.05'}, {displayNumbers.length - 1}) · n = {displayNumbers.length}
+                </p>
+              </div>
+            )}
+
+            {/* Criterio de aceptación — Póker */}
+            {activeTest === 'poker' && (
+              <div className="bg-slate-50 border border-slate-200 p-3 text-center space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Criterio</p>
+                <InlineMath math={`\\chi^2_c \\leq \\chi^2_{\\alpha,\\,6}`} />
+                <p className="text-[10px] font-mono text-slate-400 mt-1">
+                  df = 6 · 7 categorías · n = {displayNumbers.length}
                 </p>
               </div>
             )}
@@ -844,6 +897,83 @@ export default function Validators() {
                   </>
                 )}
 
+                {/* ─ Reporte de Póker ─ */}
+                {activeTest === 'poker' && pokerResult && (
+                  <>
+                    {/* Parámetros */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <StatCard label="N"          value={pokerResult.n.toString()} />
+                      <StatCard label="α"          value={pokerResult.alpha.toFixed(2)} />
+                      <StatCard label="df"         value={pokerResult.df.toString()} />
+                      <StatCard label="Coef. Póker (χ²α,6)" value={pokerResult.chiCritical.toFixed(4)} />
+                    </div>
+
+                    {/* Estadístico */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatCard
+                        label="Total χ²c"
+                        value={pokerResult.chiCalc.toFixed(5)}
+                        highlight={pokerResult.passed ? 'green' : 'red'}
+                      />
+                      <StatCard label="Valor tabla χ²α,6" value={pokerResult.chiCritical.toFixed(5)} />
+                    </div>
+
+                    {/* Tabla de categorías */}
+                    <div className="overflow-auto border border-slate-200">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-900 text-white">
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-left">Mano</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Pᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Oᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Eᵢ = N·Pᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">(E−O)²/E</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pokerResult.rows.map((row, idx) => (
+                            <tr key={row.category} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}`}>
+                              <td className="px-3 py-1.5 font-mono font-bold text-accent">{row.category}
+                                <span className="font-normal text-slate-400 ml-2">{row.label}</span>
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-500">{row.probability.toFixed(4)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono font-bold text-slate-800">{row.observed}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-500">{row.expected.toFixed(4)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-700">{row.contribution.toFixed(5)}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-slate-900 text-white">
+                            <td colSpan={4} className="px-3 py-2 font-bold uppercase tracking-wider text-right">Total χ²c</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold">{pokerResult.chiCalc.toFixed(5)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Manos clasificadas */}
+                    <div className="border border-slate-200 p-3 bg-slate-50">
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Manos clasificadas (dígitos redondeados)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pokerResult.details.map((d, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 border border-slate-200 bg-white px-2 py-0.5">
+                            <span className="font-mono text-[10px] font-bold text-accent">{d.category}</span>
+                            <span className="font-mono text-[9px] text-slate-400">{d.digits}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={`p-4 border text-sm font-semibold leading-relaxed ${
+                      pokerResult.passed ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      {pokerResult.passed
+                        ? `La secuencia aprueba la Prueba de Póker con α = ${pokerResult.alpha}. El estadístico χ²c = ${pokerResult.chiCalc.toFixed(4)} es menor o igual al coeficiente de Póker χ²α,6 = ${pokerResult.chiCritical.toFixed(4)}, por lo tanto los números son independientes.`
+                        : `La secuencia no aprueba la Prueba de Póker con α = ${pokerResult.alpha}. El estadístico χ²c = ${pokerResult.chiCalc.toFixed(4)} supera el coeficiente de Póker χ²α,6 = ${pokerResult.chiCritical.toFixed(4)}.`
+                      }
+                    </div>
+                  </>
+                )}
+
               </div>
             )}
           </div>
@@ -886,7 +1016,7 @@ export default function Validators() {
           <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
+              {{ means: 'Prueba de Medias', variance: 'Prueba de Varianza', chiSquare: 'Prueba Chi-Cuadrada', kolmogorov: 'Kolmogorov-Smirnov', poker: 'Prueba de Póker' }[activeTest] ?? activeTest} · n = {displayNumbers.length} · α = {alpha}
             </span>
           </div>
 
@@ -949,6 +1079,18 @@ export default function Validators() {
                       { color: '#4f46e5', label: 'F empírica (escalera)' },
                       { color: '#94a3b8', dashed: true, label: 'F teórica U[0,1]' },
                       { color: ksResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: `D = ${ksResult.dMaxMax.toFixed(4)}` },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'poker' && pokerResult && (
+                  <>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                      Frecuencias Oᵢ observadas vs Eᵢ esperadas por categoría
+                    </p>
+                    <PokerChart result={pokerResult} />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Oᵢ observada' },
+                      { color: '#0891b2', dashed: true, label: 'Eᵢ esperada' },
                     ]} />
                   </>
                 )}
@@ -1018,6 +1160,21 @@ export default function Validators() {
                     <LegendRow items={[
                       { color: '#4f46e5', label: 'Rᵢ (sin ordenar)' },
                       { color: ksResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'poker' && pokerResult && (
+                  <>
+                    <SequenceChart
+                      numbers={displayNumbers}
+                      lowerLimit={0}
+                      upperLimit={1}
+                      mean={riValues.reduce((s, r) => s + r, 0) / riValues.length}
+                      meanColor={pokerResult.passed ? '#16a34a' : '#dc2626'}
+                    />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Rᵢ' },
+                      { color: pokerResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
                     ]} />
                   </>
                 )}
