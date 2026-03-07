@@ -501,7 +501,7 @@ export default function Generators() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
             <Calculator size={24} className="text-accent" />
-            Laboratorio de Generación
+            Generadores de Números Pseudoaleatorios
           </h1>
           <p className="text-slate-500 text-sm mt-1 font-medium">
             Configure los parámetros iniciales y ejecute el algoritmo seleccionado.

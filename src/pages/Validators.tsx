@@ -6,7 +6,8 @@ import {
   Activity, Settings2, Play, History, CheckCircle, XCircle,
 } from 'lucide-react';
 import {
-  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
+  ComposedChart, Area, Line, Bar,
+  XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer,
 } from 'recharts';
 import { useSimulationStore } from '../store/useSimulationStore';
@@ -15,13 +16,14 @@ import { generateMultiplicative } from '../core/generators/multiplicative';
 import { generateMonteCarlo }    from '../core/generators/monteCarlo';
 import { testMeans,    type MeansResult    } from '../core/validators/means';
 import { testVariance, type VarianceResult, chiSquarePDF } from '../core/validators/variance';
+import { testChiSquare, type ChiSquareGoFResult } from '../core/validators/chiSquare';
 import type { HistoryEntry, GeneratedNumber } from '../types/simulation';
 
 // ── Constants ─────────────────────────────────────────────────
 const VALIDATION_TESTS = [
   { id: 'means',      name: 'Prueba de Medias',           icon: Percent,    ready: true  },
   { id: 'variance',   name: 'Prueba de Varianza',         icon: BarChart,   ready: true  },
-  { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: false },
+  { id: 'chiSquare',  name: 'Prueba Chi-Cuadrada',        icon: LayoutGrid, ready: true  },
   { id: 'kolmogorov', name: 'Prueba Kolmogorov-Smirnov',  icon: Activity,   ready: false },
   { id: 'poker',      name: 'Prueba de Póker',            icon: CheckSquare,ready: false },
 ];
@@ -266,20 +268,58 @@ function StatCard({ label, value, highlight }: {
   );
 }
 
+// ── Chi-Square GoF Frequency Chart ────────────────────────────
+function ChiSquareFreqChart({ result }: { result: ChiSquareGoFResult }) {
+  const data = useMemo(
+    () => result.bins.map((b) => ({
+      label: `${b.lower.toFixed(2)}–${b.upper.toFixed(2)}`,
+      Oi: b.observed,
+      Ei: +b.expected.toFixed(4),
+    })),
+    [result.bins],
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 30 }}>
+        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={{ stroke: '#e2e8f0' }} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+        <YAxis allowDecimals={false}
+          tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'ui-monospace,monospace' }}
+          axisLine={false} tickLine={false} width={28} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: any, name: any) => [
+            typeof v === 'number' ? (name === 'Ei' ? v.toFixed(4) : v) : v,
+            name === 'Oi' ? 'Observada (Oᵢ)' : 'Esperada (Eᵢ)',
+          ]}
+          labelFormatter={(l) => `Intervalo ${l}`}
+          cursor={{ fill: '#f8fafc' }}
+        />
+        <Bar dataKey="Oi" fill="#4f46e5" fillOpacity={0.85} radius={0} maxBarSize={40} />
+        <ReferenceLine y={result.expected} stroke="#0891b2" strokeDasharray="5 4" strokeWidth={2}
+          label={{ value: `E=${result.expected.toFixed(2)}`, position: 'insideTopRight', fontSize: 9, fill: '#0891b2', fontWeight: 700 }} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────
 export default function Validators() {
   const navigate = useNavigate();
   const { generatedNumbers, methodUsed, setSimulationData, history } = useSimulationStore();
 
-  const [activeTest, setActiveTest]         = useState<string>('means');
-  const [alpha, setAlpha]                   = useState<string>('0.05');
-  const [meansResult, setMeansResult]       = useState<MeansResult    | null>(null);
-  const [varianceResult, setVarianceResult] = useState<VarianceResult | null>(null);
+  const [activeTest, setActiveTest]             = useState<string>('means');
+  const [alpha, setAlpha]                       = useState<string>('0.05');
+  const [meansResult, setMeansResult]           = useState<MeansResult       | null>(null);
+  const [varianceResult, setVarianceResult]     = useState<VarianceResult    | null>(null);
+  const [chiSquareResult, setChiSquareResult]   = useState<ChiSquareGoFResult| null>(null);
 
   const displayNumbers = generatedNumbers.filter(n => !(n as any).isSeedRow);
   const riValues       = displayNumbers.map(n => n.value);
 
-  const clearResults = () => { setMeansResult(null); setVarianceResult(null); };
+  const clearResults = () => { setMeansResult(null); setVarianceResult(null); setChiSquareResult(null); };
 
   const switchTest = (id: string) => { setActiveTest(id); clearResults(); };
 
@@ -297,13 +337,17 @@ export default function Validators() {
   const handleValidate = (e: React.FormEvent) => {
     e.preventDefault();
     const a = parseFloat(alpha);
-    if (activeTest === 'means')    setMeansResult(testMeans(riValues, a));
-    if (activeTest === 'variance') setVarianceResult(testVariance(riValues, a));
+    if (activeTest === 'means')     setMeansResult(testMeans(riValues, a));
+    if (activeTest === 'variance')  setVarianceResult(testVariance(riValues, a));
+    if (activeTest === 'chiSquare') setChiSquareResult(testChiSquare(riValues, a));
   };
 
   // Resultado activo
-  const activeResult = activeTest === 'means' ? meansResult : activeTest === 'variance' ? varianceResult : null;
-  const hasPassed    = activeResult?.passed;
+  const activeResult =
+    activeTest === 'means'     ? meansResult :
+    activeTest === 'variance'  ? varianceResult :
+    activeTest === 'chiSquare' ? chiSquareResult : null;
+  const hasPassed = activeResult?.passed;
 
   // ── Sin datos y sin historial ────────────────────────────────
   if (generatedNumbers.length === 0 && history.length === 0) {
@@ -319,7 +363,7 @@ export default function Validators() {
           </p>
           <button onClick={() => navigate('/generadores')}
             className="w-full bg-slate-900 text-white font-bold py-3 px-4 hover:bg-accent transition-colors">
-            Ir al Laboratorio de Generación
+            Ir al Generador de Números
           </button>
         </div>
       </div>
@@ -463,6 +507,17 @@ export default function Validators() {
               </div>
             )}
 
+            {/* Criterio de aceptación — Chi-Cuadrada */}
+            {activeTest === 'chiSquare' && (
+              <div className="bg-slate-50 border border-slate-200 p-3 text-center space-y-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Criterio</p>
+                <InlineMath math={`\\chi^2_c \\leq \\chi^2_{\\alpha,\\,M-1}`} />
+                <p className="text-[10px] font-mono text-slate-400 mt-1">
+                  M = √{displayNumbers.length} ≈ {Math.sqrt(displayNumbers.length).toFixed(5)} · df = {Math.floor(Math.sqrt(displayNumbers.length)) - 1}
+                </p>
+              </div>
+            )}
+
             <button type="submit"
               className="mt-2 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-bold py-3 px-4 hover:bg-accent transition-colors">
               <Play size={18} fill="currentColor" />
@@ -568,6 +623,75 @@ export default function Validators() {
                   </>
                 )}
 
+                {/* ─ Reporte de Chi-Cuadrada ─ */}
+                {activeTest === 'chiSquare' && chiSquareResult && (
+                  <>
+                    {/* Fila de parámetros */}
+                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+                      <StatCard label="α"          value={chiSquareResult.alpha.toFixed(2)} />
+                      <StatCard label="N"           value={chiSquareResult.n.toString()} />
+                      <StatCard label="M = √N"      value={chiSquareResult.mFloat.toFixed(5)} />
+                      <StatCard label="Intervalos"  value={chiSquareResult.mInt.toString()} />
+                      <StatCard label="Rango (1/M)" value={chiSquareResult.rango.toFixed(5)} />
+                      <StatCard label="E = N/M"     value={chiSquareResult.expected.toFixed(5)} />
+                      <StatCard label="df = M−1"    value={chiSquareResult.df.toString()} />
+                    </div>
+
+                    {/* Estadístico vs Crítico */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatCard
+                        label="χ²c (calculado)"
+                        value={chiSquareResult.chiCalc.toFixed(7)}
+                        highlight={chiSquareResult.passed ? 'green' : 'red'}
+                      />
+                      <StatCard label="Valor tabla χ²α" value={chiSquareResult.chiCritical.toFixed(7)} />
+                    </div>
+
+                    {/* Tabla de frecuencias */}
+                    <div className="overflow-auto max-h-52 border border-slate-200">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-900 text-white">
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-white/60 text-right">#</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-center">Intervalo</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Oᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">Eᵢ</th>
+                            <th className="px-3 py-2 font-bold uppercase tracking-wider text-right">(E−O)²/E</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chiSquareResult.bins.map((b, idx) => (
+                            <tr key={b.index} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}`}>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-400">{b.index}</td>
+                              <td className="px-3 py-1.5 text-center font-mono text-slate-600">
+                                [{b.lower.toFixed(4)},&nbsp;{b.upper.toFixed(4)})
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono font-bold text-accent">{b.observed}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-500">{b.expected.toFixed(4)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-slate-700">{b.contribution.toFixed(4)}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-slate-900 text-white">
+                            <td colSpan={2} className="px-3 py-2 font-bold uppercase tracking-wider text-right">Total</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold">{chiSquareResult.bins.reduce((s, b) => s + b.observed, 0)}</td>
+                            <td className="px-3 py-2 text-right font-mono">{(chiSquareResult.expected * chiSquareResult.mInt).toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold">{chiSquareResult.chiCalc.toFixed(4)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`p-4 border text-sm font-semibold leading-relaxed ${
+                      chiSquareResult.passed ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      {chiSquareResult.passed
+                        ? `La secuencia aprueba la Prueba Chi-Cuadrada con α = ${chiSquareResult.alpha}. El estadístico calculado χ²c = ${chiSquareResult.chiCalc.toFixed(4)} es menor o igual al valor de tabla χ²α = ${chiSquareResult.chiCritical.toFixed(4)}, por lo tanto los números son uniformes.`
+                        : `La secuencia no aprueba la Prueba Chi-Cuadrada con α = ${chiSquareResult.alpha}. El estadístico calculado χ²c = ${chiSquareResult.chiCalc.toFixed(4)} supera el valor de tabla χ²α = ${chiSquareResult.chiCritical.toFixed(4)}, indicando que la distribución no es uniforme.`
+                      }
+                    </div>
+                  </>
+                )}
+
               </div>
             )}
           </div>
@@ -610,7 +734,7 @@ export default function Validators() {
           <div className="border-b border-slate-300 px-6 py-4 bg-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Análisis Gráfico</h3>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {activeTest === 'means' ? 'Prueba de Medias' : 'Prueba de Varianza'} · n = {displayNumbers.length} · α = {alpha}
+              {activeTest === 'means' ? 'Prueba de Medias' : activeTest === 'variance' ? 'Prueba de Varianza' : 'Prueba Chi-Cuadrada'} · n = {displayNumbers.length} · α = {alpha}
             </span>
           </div>
 
@@ -651,6 +775,18 @@ export default function Validators() {
                     ]} />
                   </>
                 )}
+                {activeTest === 'chiSquare' && chiSquareResult && (
+                  <>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                      Frecuencias Oᵢ por intervalo — Eᵢ = {chiSquareResult.expected.toFixed(2)} (uniforme)
+                    </p>
+                    <ChiSquareFreqChart result={chiSquareResult} />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Oᵢ observada' },
+                      { color: '#0891b2', dashed: true, label: `Eᵢ = ${chiSquareResult.expected.toFixed(2)} esperada` },
+                    ]} />
+                  </>
+                )}
               </div>
 
               {/* Secuencia Rᵢ */}
@@ -687,6 +823,21 @@ export default function Validators() {
                       { fill: '#dcfce7', color: '#059669', label: 'Banda [Lᵢ, Lₛ]' },
                       { color: '#4f46e5', label: 'Rᵢ' },
                       { color: varianceResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
+                    ]} />
+                  </>
+                )}
+                {activeTest === 'chiSquare' && chiSquareResult && (
+                  <>
+                    <SequenceChart
+                      numbers={displayNumbers}
+                      lowerLimit={0}
+                      upperLimit={1}
+                      mean={riValues.reduce((s, r) => s + r, 0) / riValues.length}
+                      meanColor={chiSquareResult.passed ? '#16a34a' : '#dc2626'}
+                    />
+                    <LegendRow items={[
+                      { color: '#4f46e5', label: 'Rᵢ' },
+                      { color: chiSquareResult.passed ? '#16a34a' : '#dc2626', dashed: true, label: 'r̄' },
                     ]} />
                   </>
                 )}

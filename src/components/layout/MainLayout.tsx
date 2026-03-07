@@ -6,7 +6,7 @@ export default function MainLayout() {
   // Enlaces de navegacion principal
   const navItems = [
     { path: '/', name: 'Inicio', icon: LayoutDashboard },
-    { path: '/generadores', name: 'Laboratorio', icon: Dna },
+    { path: '/generadores', name: 'Generador', icon: Dna },
     { path: '/validadores', name: 'Validación', icon: CheckSquare },
     { path: '/teoria', name: 'Teoría', icon: BookOpen },
     { path: '/herramientas', name: 'Ecosistema', icon: AppWindow },
