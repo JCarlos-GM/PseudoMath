@@ -334,7 +334,7 @@ export default function Validators() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
               <CheckSquare size={24} className="text-accent" />
-              Módulo de Validación Estadística
+              Validación de pseudoaleatoriedad
             </h1>
             <p className="text-slate-500 text-sm mt-1 font-medium">
               No hay una secuencia activa. Restaura una del historial para continuar.
@@ -387,11 +387,11 @@ export default function Validators() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
             <CheckSquare size={24} className="text-accent" />
-            Módulo de Validación Estadística
+            Validación de pseudoaleatoriedad
           </h1>
           <p className="text-slate-500 text-sm mt-1 font-medium">
             Analizando muestra de{' '}
-            <span className="font-bold text-slate-700">{displayNumbers.length}</span> números · vía{' '}
+            <span className="font-bold text-slate-700">{displayNumbers.length}</span> números · Método{' '}
             <span className="uppercase tracking-wider text-xs font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 ml-1">{methodUsed}</span>
           </p>
         </div>
